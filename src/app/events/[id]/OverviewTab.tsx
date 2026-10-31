@@ -60,7 +60,11 @@ export async function OverviewTab({ event, stats }: { event: Event; stats: Stats
         <Stat label="Collected" value={inr(stats.collected)} hint={`${stats.registrations} registrations`} />
         <Stat label="Verified" value={`${stats.verified}`} hint="by AI or by you" tone="good" />
         <Stat label="To review" value={`${stats.needsReview}`} hint="screenshots that look off" tone={stats.needsReview ? "warn" : "default"} />
-        <Stat label="Balance" value={inr(stats.balance)} hint={`${inr(stats.spent)} spent`} />
+        {stats.balanceScope === "fund" ? (
+          <Stat label="In the fund" value={inr(stats.balance)} hint="all months, after spending" tone={stats.balance >= 0 ? "default" : "warn"} />
+        ) : (
+          <Stat label="Balance" value={inr(stats.balance)} hint={`${inr(stats.spent)} spent`} />
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">

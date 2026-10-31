@@ -20,11 +20,13 @@ export async function CloseTab({ event, stats }: { event: Event; stats: Stats })
   const pendingReview = stats.needsReview;
   // People only register after paying. Rejected ones count too: they go away with the collection.
   const paid = await prisma.contribution.count({ where: { eventId: event.id } });
-  const canDelete = event.status === "CLOSED" || paid === 0;
-  const { billCoverage } = summarizeExpenses(await prisma.expense.findMany({ where: { eventId: event.id }, select: { amount: true, category: true, receiptKey: true } }));
+  const bills = await prisma.expense.findMany({ where: { eventId: event.id }, select: { amount: true, category: true, receiptKey: true } });
+  const { billCoverage } = summarizeExpenses(bills);
 
-  // A month of a fund doesn't settle: the money stays in the fund.
+  // A month of a fund doesn't settle: the money stays in the fund, so a month
+  // holding any of it can't be deleted (only one opened by mistake can).
   const fundMonth = !!event.fundId;
+  const canDelete = fundMonth ? paid === 0 && bills.length === 0 : event.status === "CLOSED" || paid === 0;
 
   return (
     <div className="space-y-5">
@@ -85,7 +87,7 @@ export async function CloseTab({ event, stats }: { event: Event; stats: Stats })
           {canDelete
             ? "Permanently removes this collection, its registrations, payment screenshots, roster and reminders. This can't be undone."
             : fundMonth
-              ? "People have already paid. Close this month before deleting it."
+              ? "This month has payments or bills that are part of the fund's accounts, so it can't be deleted. Close it to stop new payments."
               : "People have already paid. Settle the balances above and close the collection before deleting it."}
         </p>
         {canDelete && <DeleteEventForm eventId={event.id} eventName={event.name} />}

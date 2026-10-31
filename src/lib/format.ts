@@ -25,5 +25,7 @@ export function relativeTime(d: Date | string, now = new Date()): string {
  */
 export function matchesName(typed: string, name: string): boolean {
   const words = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-  return words(typed) !== "" && words(typed) === words(name);
+  // A name with no letters or digits ("🎉🎉🎉") has to be typed as it is.
+  if (!words(name)) return typed.trim() !== "" && typed.trim() === name.trim();
+  return words(typed) === words(name);
 }

@@ -87,6 +87,7 @@ export function summaryAnswer(s: {
   collected: number;
   spent: number;
   balance: number;
+  balanceScope?: "fund" | "event";
   needsReview: number;
 }): AssistantAnswer {
   const parts = [`${inr(s.collected)} collected from ${plural(s.registrations, "person", "people")}.`];
@@ -96,7 +97,11 @@ export function summaryAnswer(s: {
     );
   }
   if (s.needsReview) parts.push(`${plural(s.needsReview, "payment")} waiting for your review.`);
-  parts.push(`${inr(s.spent)} spent, ${s.balance >= 0 ? `${inr(s.balance)} in hand` : `${inr(-s.balance)} short`}.`);
+  if (s.balanceScope === "fund") {
+    parts.push(`${inr(s.spent)} spent this month. The fund has ${s.balance >= 0 ? `${inr(s.balance)} in hand` : `spent ${inr(-s.balance)} more than it collected`} across all months.`);
+  } else {
+    parts.push(`${inr(s.spent)} spent, ${s.balance >= 0 ? `${inr(s.balance)} in hand` : `${inr(-s.balance)} short`}.`);
+  }
   return { text: parts.join(" ") };
 }
 

@@ -7,8 +7,8 @@ import { normalizePhone } from "@/lib/phone";
 import { putObject } from "@/lib/storage";
 import { normalizeUtr } from "@/lib/upi";
 import { extractProof, type ProofExtraction } from "@/lib/verify/extract";
-import { isSameScreenshot } from "@/lib/verify/duplicates";
-import { prepareProofImage } from "@/lib/verify/image";
+import { isSameScreenshot, NEAR_DUPLICATE_BITS } from "@/lib/verify/duplicates";
+import { hammingDistance, prepareProofImage } from "@/lib/verify/image";
 import { evaluateProof } from "@/lib/verify/rules";
 import { runMatching } from "./matching";
 
@@ -95,15 +95,22 @@ export async function registerContribution(
     if (extracted) {
       // In a monthly fund, a payment is only good for one month: last month's
       // screenshot (or UTR) reused this month is the likeliest fraud there.
-      const others = await prisma.contribution.findMany({
-        where: { id: { not: contribution.id }, ...(event.fundId ? { event: { fundId: event.fundId } } : { eventId: event.id }) },
-        select: { name: true, eventId: true, utr: true, proofSha256: true, proofPhash: true, extracted: true, event: { select: { period: true } } },
-      });
-      const usedBy = (o: (typeof others)[number]) =>
-        o.eventId !== event.id && o.event.period ? `${o.name} for ${monthLabel(o.event.period)}` : o.name;
+      // The UTR is looked up directly; for images only the hashes come back,
+      // and what was read off a screenshot is fetched just for near-identical ones.
+      const scope = { id: { not: contribution.id }, ...(event.fundId ? { event: { fundId: event.fundId } } : { eventId: event.id }) };
+      const owner = { name: true, eventId: true, utr: true, proofSha256: true, proofPhash: true, event: { select: { period: true } } } as const;
       const utr = enteredUtr ?? normalizeUtr(extracted.utr);
-      const utrOwner = utr ? others.find((o) => o.utr === utr) : undefined;
-      const imageOwner = others.find((o) => isSameScreenshot(o, image, extracted));
+      const [utrOwner, hashes] = await Promise.all([
+        utr ? prisma.contribution.findFirst({ where: { ...scope, utr }, select: owner }) : null,
+        prisma.contribution.findMany({ where: { ...scope, proofPhash: { not: null } }, select: { id: true, proofSha256: true, proofPhash: true } }),
+      ]);
+      const near = hashes
+        .filter((o) => o.proofSha256 === image.sha256 || hammingDistance(o.proofPhash!, image.dhash) <= NEAR_DUPLICATE_BITS)
+        .map((o) => o.id);
+      const candidates = near.length ? await prisma.contribution.findMany({ where: { id: { in: near } }, select: { ...owner, extracted: true } }) : [];
+      const imageOwner = candidates.find((o) => isSameScreenshot(o, image, extracted));
+      const usedBy = (o: { name: string; eventId: string; event: { period: string | null } }) =>
+        o.eventId !== event.id && o.event.period ? `${o.name} for ${monthLabel(o.event.period)}` : o.name;
       const { checks, verified } = evaluateProof({
         extracted,
         declared: { amount: input.amount, utr: enteredUtr },

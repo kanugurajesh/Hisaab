@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getFundTotals } from "./funds";
 
 export async function getEventStats(eventId: string) {
   const [event, roster, contributions, expenses] = await Promise.all([
@@ -15,6 +16,9 @@ export async function getEventStats(eventId: string) {
   const counted = contributions.filter((c) => c.verificationStatus !== "REJECTED");
   const collected = counted.reduce((sum, c) => sum + c.amount, 0);
   const spent = expenses._sum.amount ?? 0;
+  // A month of a fund doesn't balance on its own (it collects all year and
+  // spends at festival time): its balance is the fund's, across all months.
+  const fund = event.fundId ? await getFundTotals(event.fundId) : null;
   return {
     expected,
     paid: matched,
@@ -24,7 +28,8 @@ export async function getEventStats(eventId: string) {
     collected,
     expectedAmount: expected * event.perHeadAmount,
     spent,
-    balance: collected - spent,
+    balance: fund ? fund.balance : collected - spent,
+    balanceScope: fund ? ("fund" as const) : ("event" as const),
     collectionRate: expected ? matched / expected : null,
     needsReview: contributions.filter((c) => c.verificationStatus === "NEEDS_REVIEW" || c.verificationStatus === "UNVERIFIED").length,
     verified: contributions.filter((c) => c.verificationStatus === "VERIFIED" || c.verificationStatus === "APPROVED").length,

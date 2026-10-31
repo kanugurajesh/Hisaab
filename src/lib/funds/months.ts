@@ -11,6 +11,21 @@ export function periodOf(date: Date): string {
   return istIso(date).slice(0, 7);
 }
 
+/** Whole months from one period to another: monthsBetween("2026-11", "2027-02") is 3. */
+export function monthsBetween(from: string, to: string): number {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  return (ty - fy) * 12 + (tm - fm);
+}
+
+/**
+ * The month after `period` can be started once `period` itself has begun:
+ * December can be opened during November, but not January.
+ */
+export function canStartNextMonth(period: string, now: Date): boolean {
+  return period <= periodOf(now);
+}
+
 export function nextPeriod(period: string): string {
   const [y, m] = period.split("-").map(Number);
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
@@ -73,9 +88,13 @@ export interface FundRow {
 
 const CELL: Record<RosterStatus, Cell> = { MATCHED: "paid", SUGGESTED: "likely", PENDING: "unpaid", EXCLUDED: "excluded" };
 
-/** Open, and its month hasn't ended yet: not paying on the 3rd isn't "missing" it. */
+/**
+ * Not yet held against anyone: a month that hasn't started (even if closed by
+ * mistake), or this month while it's open. Not paying on the 3rd isn't "missing".
+ */
 export function isCollecting(month: Pick<FundMonthInput, "period" | "status">, now: Date): boolean {
-  return month.status === "OPEN" && month.period >= periodOf(now);
+  const current = periodOf(now);
+  return month.period > current || (month.period === current && month.status === "OPEN");
 }
 
 /**
@@ -138,7 +157,7 @@ export function buildFundGrid(input: FundMonthInput[], now = new Date()): { mont
  * For one month: the months each unpaid person also missed right before it.
  * Keyed by that month's roster member id. Used for "also missed Sep, Oct".
  */
-export function earlierMisses(grid: ReturnType<typeof buildFundGrid>, period: string): Map<string, string[]> {
+export function earlierMisses(grid: ReturnType<typeof buildFundGrid>, period: string, now = new Date()): Map<string, string[]> {
   const at = grid.months.findIndex((m) => m.period === period);
   const out = new Map<string, string[]>();
   if (at < 0) return out;
@@ -146,7 +165,12 @@ export function earlierMisses(grid: ReturnType<typeof buildFundGrid>, period: st
     const rosterId = row.rosterIds[at];
     if (!rosterId || row.cells[at] !== "unpaid") continue;
     const missed: string[] = [];
-    for (let i = at - 1; i >= 0 && row.cells[i] === "unpaid"; i--) missed.unshift(grid.months[i].period);
+    for (let i = at - 1; i >= 0; i--) {
+      // A month still collecting (November, while December was started early) isn't missed yet.
+      if (isCollecting(grid.months[i], now)) continue;
+      if (row.cells[i] !== "unpaid") break;
+      missed.unshift(grid.months[i].period);
+    }
     if (missed.length) out.set(rosterId, missed);
   }
   return out;

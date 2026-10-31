@@ -3,7 +3,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { SubmitButton } from "@/components/forms";
 import { Empty, Stat } from "@/components/ui";
 import { requireFund } from "@/lib/auth";
-import { finishedMonths, monthLabel, periodOf, type Cell } from "@/lib/funds/months";
+import { canStartNextMonth, finishedMonths, monthLabel, nextPeriod, periodOf, type Cell } from "@/lib/funds/months";
 import { inr } from "@/lib/format";
 import { getFundLedger, loadFundGrid } from "@/lib/services/funds";
 import { startNextMonth } from "../../events/actions";
@@ -63,11 +63,17 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
             <Link href={`/events/${latest.id}`} className="btn-primary">
               Open {monthLabel(latest.period!)}
             </Link>
-            <form action={startNextMonth.bind(null, latest.id)}>
-              <SubmitButton className="btn-secondary" pendingText="Copying members…">
-                Start next month
-              </SubmitButton>
-            </form>
+            {canStartNextMonth(latest.period!, now) ? (
+              <form action={startNextMonth.bind(null, latest.id)}>
+                <SubmitButton className="btn-secondary" pendingText="Copying members…">
+                  Start {monthLabel(nextPeriod(latest.period!))}
+                </SubmitButton>
+              </form>
+            ) : (
+              <span className="self-center text-xs text-slate-500">
+                {monthLabel(nextPeriod(latest.period!))} can be started once {monthLabel(latest.period!)} begins.
+              </span>
+            )}
           </div>
         </div>
 

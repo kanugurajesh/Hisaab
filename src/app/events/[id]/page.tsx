@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/forms";
 import { requireEvent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
+import { canStartNextMonth } from "@/lib/funds/months";
 import { getEventStats } from "@/lib/services/stats";
 import { startNextMonth } from "../actions";
 import { AssistantPanel } from "./AssistantPanel";
@@ -57,7 +58,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             {shortDate(event.date)} · <span className="tabular">{inr(event.perHeadAmount)}</span> per head · pays to{" "}
             <span className="font-medium text-slate-700">{event.organizerUpiVpa}</span>
           </p>
-          {fund && !laterMonth && (
+          {fund && !laterMonth && event.period && canStartNextMonth(event.period, new Date()) && (
             <form action={startNextMonth.bind(null, event.id)} className="mt-3">
               <SubmitButton className="btn-secondary text-sm" pendingText="Copying members…">
                 Start next month

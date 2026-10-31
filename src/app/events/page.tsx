@@ -9,19 +9,13 @@ import { CreateEventForm } from "./CreateEventForm";
 
 export default async function EventsPage() {
   const user = await requireOrganizer();
-  const all = await prisma.event.findMany({
-    where: { organizerId: user.id },
-    orderBy: { createdAt: "desc" },
-    include: { fund: true, _count: { select: { contributions: true, roster: { where: { status: "PENDING" } } } } },
-  });
+  const include = { fund: true, _count: { select: { contributions: true, roster: { where: { status: "PENDING" as const } } } } };
   // A monthly fund shows once, as its latest month, and opens the fund page.
-  const latestOfFund = new Map<string, (typeof all)[number]>();
-  for (const e of all) {
-    if (!e.fundId) continue;
-    const seen = latestOfFund.get(e.fundId);
-    if (!seen || (e.period ?? "") > (seen.period ?? "")) latestOfFund.set(e.fundId, e);
-  }
-  const events = all.filter((e) => !e.fundId || latestOfFund.get(e.fundId) === e);
+  const [single, funds] = await Promise.all([
+    prisma.event.findMany({ where: { organizerId: user.id, fundId: null }, include }),
+    prisma.fund.findMany({ where: { organizerId: user.id }, include: { months: { orderBy: { period: "desc" }, take: 1, include } } }),
+  ]);
+  const events = [...single, ...funds.flatMap((f) => f.months)].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
   return (
     <>

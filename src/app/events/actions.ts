@@ -256,7 +256,9 @@ export async function setEventStatus(eventId: string, status: "OPEN" | "CLOSED")
 export async function deleteEvent(eventId: string, _: FormState, form: FormData): Promise<FormState> {
   const event = await requireEvent(eventId);
   // Once anyone has paid, the collection holds a money record: close (and settle) it first.
-  const paid = await prisma.contribution.count({ where: { eventId } });
+  const [paid, bills] = await Promise.all([prisma.contribution.count({ where: { eventId } }), prisma.expense.count({ where: { eventId } })]);
+  // A fund month's payments and bills are part of the fund's shared ledger: deleting would rewrite it.
+  if (event.fundId && (paid || bills)) return { error: "This month has payments or bills that belong to the fund, so it can't be deleted." };
   if (paid && event.status === "OPEN") return { error: "Close the collection before deleting it." };
   if (!matchesName(String(form.get("confirm") ?? ""), event.name)) return { error: "Type the collection name to confirm." };
   // Contributions, roster, reminders and expenses cascade; AI cost logs are kept with no event.

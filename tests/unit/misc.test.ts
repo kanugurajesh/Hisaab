@@ -64,6 +64,8 @@ describe("matchesName", () => {
     expect(matchesName("sai nagar ganesh fund nov 2026", "Sai Nagar Ganesh Fund · Nov 2026")).toBe(true);
     expect(matchesName("Sai Nagar Ganesh Fund - Nov 2026", "Sai Nagar Ganesh Fund · Nov 2026")).toBe(true);
     expect(matchesName("Sai Nagar Ganesh Fund Oct 2026", "Sai Nagar Ganesh Fund · Nov 2026")).toBe(false);
-    expect(matchesName(" · ", "·")).toBe(false);
+    expect(matchesName("", "Diwali")).toBe(false);
+    expect(matchesName("🎉🎉🎉", "🎉🎉🎉")).toBe(true); // nothing to forgive: typed as it is
+    expect(matchesName("🎉", "🎉🎉🎉")).toBe(false);
   });
 });

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, buildFundGrid, earlierMisses, finishedMonths, monthLabel, nextPeriod, periodOf, type FundMonthInput } from "@/lib/funds/months";
+import {
+  addMonths,
+  buildFundGrid,
+  canStartNextMonth,
+  earlierMisses,
+  finishedMonths,
+  monthLabel,
+  monthsBetween,
+  nextPeriod,
+  periodOf,
+  type FundMonthInput,
+} from "@/lib/funds/months";
 
 describe("month helpers", () => {
   it("moves to the next month across a year end", () => {
@@ -18,6 +29,20 @@ describe("month helpers", () => {
     expect(periodOf(addMonths(new Date("2027-01-31T10:00:00+05:30"), 1))).toBe("2027-02");
     expect(addMonths(new Date("2027-01-31T10:00:00+05:30"), 1)).toEqual(new Date("2027-02-28T10:00:00+05:30"));
     expect(addMonths(new Date("2026-12-15T10:00:00+05:30"), 1)).toEqual(new Date("2027-01-15T10:00:00+05:30"));
+  });
+
+  it("counts months between periods, across years", () => {
+    expect(monthsBetween("2026-11", "2027-02")).toBe(3);
+    expect(monthsBetween("2026-01", "2026-01")).toBe(0);
+    // Counting from the first month keeps the 31st: Jan 31 → Feb 28 → Mar 31.
+    const jan31 = new Date("2027-01-31T10:00:00+05:30");
+    expect(addMonths(jan31, monthsBetween("2027-01", "2027-03"))).toEqual(new Date("2027-03-31T10:00:00+05:30"));
+  });
+
+  it("opens next month only once this month has begun", () => {
+    const nov20 = new Date("2026-11-20T12:00:00+05:30");
+    expect(canStartNextMonth("2026-11", nov20)).toBe(true); // December, during November
+    expect(canStartNextMonth("2026-12", nov20)).toBe(false); // not January yet
   });
 
   it("labels months", () => {
@@ -70,6 +95,22 @@ describe("buildFundGrid", () => {
     expect(finishedMonths(grid.months, new Date("2026-11-20T12:00:00+05:30"))).toBe(3);
     expect(by("asha").missedInARow).toBe(0);
     expect(by("ravi").missedPeriods).toEqual(["2026-09", "2026-10"]);
+  });
+
+  it("doesn't count a month that hasn't started, even if it was closed by mistake", () => {
+    const closedEarly = [...months, month("2026-12", [member("asha", "PENDING"), member("ravi", "PENDING"), member("kiran", "PENDING")], "CLOSED")];
+    const grid = buildFundGrid(closedEarly, new Date("2026-11-20T12:00:00+05:30"));
+    expect(grid.rows.find((r) => r.personKey === "asha")!.missedInARow).toBe(0);
+  });
+
+  it("doesn't say 'also missed' a month that is still collecting", () => {
+    const early = [...months, month("2026-12", [member("asha", "PENDING"), member("ravi", "PENDING"), member("kiran", "PENDING")], "OPEN")];
+    const at = new Date("2026-11-20T12:00:00+05:30");
+    const grid = buildFundGrid(early, at);
+    const december = earlierMisses(grid, "2026-12", at);
+    const row = (k: string) => grid.rows.find((r) => r.personKey === k)!;
+    expect(december.get(row("ravi").rosterIds[4]!)).toEqual(["2026-09", "2026-10"]); // November skipped
+    expect(december.has(row("asha").rosterIds[4]!)).toBe(false);
   });
 
   it("counts the latest month once it's closed or over", () => {

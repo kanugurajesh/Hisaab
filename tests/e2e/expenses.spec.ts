@@ -25,7 +25,8 @@ test("bills fill in expenses, a re-uploaded bill is flagged, and the group sees 
   await page.getByLabel("Your UPI ID").fill("e2e.bills@okicici");
   await page.getByLabel("Name on your UPI account").fill("E2E Organizer");
   await page.getByRole("button", { name: "Create collection" }).click();
-  await expect(page.getByRole("heading", { name: eventName })).toBeVisible();
+  // The dev server compiles the event page on first visit.
+  await expect(page.getByRole("heading", { name: eventName })).toBeVisible({ timeout: 15_000 });
   const invite = (await page.locator("code").first().textContent())!.trim();
 
   await page.getByRole("link", { name: /Expenses/ }).click();
