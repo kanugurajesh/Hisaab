@@ -1,0 +1,59 @@
+name: Deploy to Cloud Run
+
+# Runs after CI passes on main. One-time GCP setup is described in docs/DEPLOY.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+env:
+  REGION: asia-south1
+  SERVICE: choruss-hisaab
+  REPO: asia-south1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/choruss
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push images
+        run: |
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+          TAG=${{ github.event.workflow_run.head_sha }}
+          docker build --target runner -t $REPO/app:$TAG .
+          docker build --target migrate -t $REPO/migrate:$TAG .
+          docker push $REPO/app:$TAG
+          docker push $REPO/migrate:$TAG
+
+      - name: Run database migrations
+        run: |
+          gcloud run jobs deploy choruss-migrate \
+            --image $REPO/migrate:${{ github.event.workflow_run.head_sha }} \
+            --region $REGION \
+            --set-cloudsql-instances ${{ vars.CLOUDSQL_INSTANCE }} \
+            --set-secrets DATABASE_URL=database-url:latest \
+            --execute-now --wait
+
+      - name: Deploy service
+        run: |
+          gcloud run deploy $SERVICE \
+            --image $REPO/app:${{ github.event.workflow_run.head_sha }} \
+            --region $REGION \
+            --allow-unauthenticated \
+            --add-cloudsql-instances ${{ vars.CLOUDSQL_INSTANCE }} \
+            --set-secrets DATABASE_URL=database-url:latest,GROQ_API_KEY=groq-api-key:latest,NEXTAUTH_SECRET=nextauth-secret:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest \
+            --set-env-vars STORAGE_DRIVER=gcs,GCS_BUCKET=${{ vars.GCS_BUCKET }},APP_URL=${{ vars.APP_URL }},NEXTAUTH_URL=${{ vars.APP_URL }},GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }},GROQ_TEXT_MODEL=openai/gpt-oss-120b,GROQ_VISION_MODEL=qwen/qwen3.8-27b,DEMO_LOGIN=false,AI_MOCK=false

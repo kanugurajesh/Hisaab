@@ -1,0 +1,149 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  events    Event[]
+}
+
+enum EventStatus {
+  OPEN
+  CLOSED
+}
+
+model Event {
+  id              String         @id @default(cuid())
+  organizerId     String
+  organizer       User           @relation(fields: [organizerId], references: [id])
+  name            String
+  date            DateTime
+  perHeadAmount   Int // rupees
+  organizerName   String
+  organizerUpiVpa String
+  dueDate         DateTime?
+  inviteCode      String         @unique
+  status          EventStatus    @default(OPEN)
+  createdAt       DateTime       @default(now())
+  contributions   Contribution[]
+  expenses        Expense[]
+  roster          RosterMember[]
+  aiCalls         AiCall[]
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  NEEDS_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model Contribution {
+  id                 String             @id @default(cuid())
+  eventId            String
+  event              Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name               String
+  phone              String? // E.164
+  amount             Int
+  utr                String?
+  proofKey           String?
+  proofSha256        String?
+  proofPhash         String?
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  extracted          Json?
+  checks             Json?
+  reviewedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  rosterMember       RosterMember?
+
+  @@unique([eventId, utr])
+  @@index([eventId, proofSha256])
+}
+
+model Expense {
+  id            String    @id @default(cuid())
+  eventId       String
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title         String
+  amount        Int
+  category      String
+  vendor        String?
+  billDate      DateTime?
+  receiptKey    String?
+  receiptSha256 String?
+  receiptPhash  String?
+  extracted     Json?
+  checks        Json?
+  // Some receipt check failed and the organizer hasn't looked at it yet.
+  flagged       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@index([eventId, receiptSha256])
+}
+
+enum RosterSource {
+  WHATSAPP_EXPORT
+  PASTE
+  MANUAL
+}
+
+enum RosterStatus {
+  PENDING
+  SUGGESTED
+  MATCHED
+  EXCLUDED
+}
+
+model RosterMember {
+  id              String        @id @default(cuid())
+  eventId         String
+  event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  displayName     String
+  phone           String?
+  source          RosterSource
+  status          RosterStatus  @default(PENDING)
+  contributionId  String?       @unique
+  contribution    Contribution? @relation(fields: [contributionId], references: [id], onDelete: SetNull)
+  matchConfidence Float?
+  matchReason     String?
+  nudgeToken      String        @unique
+  createdAt       DateTime      @default(now())
+  reminders       Reminder[]
+}
+
+model Reminder {
+  id             String       @id @default(cuid())
+  rosterMemberId String
+  rosterMember   RosterMember @relation(fields: [rosterMemberId], references: [id], onDelete: Cascade)
+  language       String
+  tone           String
+  message        String
+  attempt        Int
+  usedFallback   Boolean      @default(false)
+  sentAt         DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model AiCall {
+  id           String   @id @default(cuid())
+  eventId      String?
+  event        Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  task         String
+  model        String
+  latencyMs    Int
+  inputTokens  Int?
+  outputTokens Int?
+  ok           Boolean
+  error        String?
+  createdAt    DateTime @default(now())
+}
