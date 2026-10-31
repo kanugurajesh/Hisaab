@@ -63,7 +63,19 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
   <img src="docs/screenshots/10-contributor-ledger.png" alt="Shared ledger with bills" width="300">
 </p>
 
-<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>).</sub>
+**After registering, the invite link remembers their payment.** It updates by itself while the organizer reviews it. Once confirmed, they get the event details, Add to calendar, directions and a receipt that doubles as a pass.
+
+<p>
+  <img src="docs/screenshots/11-contributor-waiting.png" alt="Payment waiting for the organizer, with the reasons it wasn't auto-verified" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/12-contributor-confirmed.png" alt="Payment confirmed: receipt, event time, venue, note, calendar and directions" width="300">
+</p>
+
+**Event details.** The organizer sets the start time, venue and a note, which contributors see once their payment is confirmed.
+
+![Event details form on the organizer overview](docs/screenshots/13-event-details.png)
+
+<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>). Screenshots 11–13 were captured by hand.</sub>
 
 ---
 
