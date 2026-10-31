@@ -12,6 +12,8 @@ async function receipt(payer: string) {
 }
 
 async function register(page: Page, invite: string, name: string, proof: Buffer) {
+  // Each call plays a different contributor: forget the payment this browser registered.
+  await page.context().clearCookies({ name: /^hisaab_paid_/ });
   await page.goto(invite);
   await page.getByLabel("Your name").fill(name);
   await page.getByLabel("Payment screenshot").setInputFiles({ name: "proof.png", mimeType: "image/png", buffer: proof });
@@ -49,7 +51,7 @@ test("organizer finds who hasn't paid, contributor proof is verified, duplicate 
   // Same screenshot reused by someone else: must not auto-verify.
   await register(page, invite, "Kiran", proof);
   await expect(page.getByText(/organizer will confirm/)).toBeVisible();
-  await expect(page.getByText(/screenshot not reused/i)).toBeVisible();
+  await expect(page.getByText(/screenshot was already used/i)).toBeVisible();
 
   await page.goto(invite.replace(/\/i\/.*/, "/events"));
   await page.getByRole("link", { name: eventName }).click();
@@ -70,6 +72,12 @@ test("organizer finds who hasn't paid, contributor proof is verified, duplicate 
   await shot("review");
   await review.getByRole("button", { name: "Reject" }).click();
   await expect(page.getByText("Nothing to review")).toBeVisible();
+
+  // Kiran registered from this browser: the invite link now shows the organizer's decision, not the form.
+  await page.goto(invite);
+  await expect(page.getByText(/couldn't confirm this payment/)).toBeVisible();
+  await expect(page.getByLabel("Your name")).toHaveCount(0);
+  await page.goBack();
 
   // A rejected payment puts the person back on the missing list.
   await page.getByRole("link", { name: /hasn't paid/ }).click();

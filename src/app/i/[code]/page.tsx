@@ -1,18 +1,25 @@
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { CopyButton } from "@/components/forms";
 import { Logo } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
+import { paymentCookieName, readContributionId } from "@/lib/paymentCookie";
 import { buildUpiLink } from "@/lib/upi";
 import { Ledger } from "./Ledger";
+import { PaymentStatus } from "./PaymentStatus";
 import { RegisterForm } from "./RegisterForm";
 
-export default async function InvitePage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ r?: string }> }) {
+export default async function InvitePage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ r?: string; new?: string }> }) {
   const { code } = await params;
-  const { r } = await searchParams;
+  const { r, new: registerAnother } = await searchParams;
   const event = await prisma.event.findUnique({ where: { inviteCode: code } });
   if (!event) notFound();
+
+  // This browser already registered a payment here: show its status, not a blank form.
+  const paidId = registerAnother ? null : readContributionId((await cookies()).get(paymentCookieName(code))?.value);
+  const paid = paidId ? await prisma.contribution.findFirst({ where: { id: paidId, eventId: event.id } }) : null;
 
   // A personal reminder link lets us greet them and match with certainty.
   const member = r ? await prisma.rosterMember.findFirst({ where: { eventId: event.id, nudgeToken: r } }) : null;
@@ -34,6 +41,8 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
 
       {event.status === "CLOSED" ? (
         <section className="card text-center text-slate-600">This collection is closed. Contact {event.organizerName} if you still want to contribute.</section>
+      ) : paid ? (
+        <PaymentStatus key={paid.id} contribution={paid} organizerName={event.organizerName} />
       ) : (
         <>
           <section className="card">

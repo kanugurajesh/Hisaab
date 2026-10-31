@@ -415,6 +415,7 @@ async function video() {
   await sleep(3500);
 
   await d.caption("3 · Is this payment real?", "Now Omkar tries to reuse Neha's screenshot…", 1200);
+  await page.context().clearCookies({ name: /^hisaab_paid_/ });
   await show(PHONE_PAGE(INVITE));
   await app.getByLabel("Your name").waitFor();
   await scrollFrame("form");

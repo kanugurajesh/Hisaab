@@ -137,7 +137,7 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
 - **Upload hardening:** 5 MB cap, the format is read from the decoded bytes rather than the browser's MIME type (JPG, PNG or WebP only), EXIF orientation is fixed, and images are downscaled before storage and AI.
 - **Rate-limited public registration** (10 attempts per 10 minutes per IP).
 - **Private storage:** local disk in development and a private GCS bucket in production, with files served only through authenticated routes.
-- **Auth:** Google sign-in through NextAuth, plus an opt-in passwordless demo login that is disabled in production.
+- **Auth:** email and password sign-up and sign-in through NextAuth (scrypt-hashed passwords, rate-limited attempts), plus an opt-in passwordless demo login that is disabled in production.
 
 ---
 
@@ -237,7 +237,6 @@ To use real AI, set `GROQ_API_KEY` and `AI_MOCK=false` in `.env`.
 | --- | --- |
 | `DATABASE_URL` | Postgres connection string |
 | `NEXTAUTH_URL`, `NEXTAUTH_SECRET` | NextAuth session config |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in |
 | `DEMO_LOGIN` | `true` enables the passwordless demo organizer (**never in production**) |
 | `GROQ_API_KEY` | Groq API key |
 | `GROQ_TEXT_MODEL`, `GROQ_VISION_MODEL` | Defaults: `openai/gpt-oss-120b`, `qwen/qwen3.8-27b` |

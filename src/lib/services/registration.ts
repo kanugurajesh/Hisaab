@@ -6,7 +6,7 @@ import { putObject } from "@/lib/storage";
 import { normalizeUtr } from "@/lib/upi";
 import { extractProof, type ProofExtraction } from "@/lib/verify/extract";
 import { hammingDistance, prepareProofImage } from "@/lib/verify/image";
-import { evaluateProof, type Check } from "@/lib/verify/rules";
+import { evaluateProof } from "@/lib/verify/rules";
 import { runMatching } from "./matching";
 
 const NEAR_DUPLICATE_BITS = 6;
@@ -20,7 +20,7 @@ export const registrationInput = z.object({
 });
 
 export type RegistrationResult =
-  | { ok: true; status: "VERIFIED" | "NEEDS_REVIEW" | "UNVERIFIED"; issues: string[] }
+  | { ok: true; contributionId: string; status: "VERIFIED" | "NEEDS_REVIEW" | "UNVERIFIED" }
   | { ok: false; error: string };
 
 function istNowString(): string {
@@ -67,7 +67,7 @@ export async function registerContribution(
     });
   }
 
-  let result: RegistrationResult = { ok: true, status: "UNVERIFIED", issues: image ? ["Could not read the screenshot"] : ["No screenshot"] };
+  let result: RegistrationResult = { ok: true, contributionId: contribution.id, status: "UNVERIFIED" };
   if (image) {
     let extracted: ProofExtraction | null = null;
     try {
@@ -119,7 +119,7 @@ export async function registerContribution(
         status = "NEEDS_REVIEW";
         await prisma.contribution.update({ where: { id: contribution.id }, data: { ...data, verificationStatus: status, utr: null } });
       }
-      result = { ok: true, status, issues: checks.filter((c: Check) => !c.pass).map((c) => c.label) };
+      result = { ok: true, contributionId: contribution.id, status };
     }
   }
 

@@ -55,5 +55,5 @@ jobs:
             --region $REGION \
             --allow-unauthenticated \
             --add-cloudsql-instances ${{ vars.CLOUDSQL_INSTANCE }} \
-            --set-secrets DATABASE_URL=database-url:latest,GROQ_API_KEY=groq-api-key:latest,NEXTAUTH_SECRET=nextauth-secret:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest \
-            --set-env-vars STORAGE_DRIVER=gcs,GCS_BUCKET=${{ vars.GCS_BUCKET }},APP_URL=${{ vars.APP_URL }},NEXTAUTH_URL=${{ vars.APP_URL }},GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }},GROQ_TEXT_MODEL=openai/gpt-oss-120b,GROQ_VISION_MODEL=qwen/qwen3.8-27b,DEMO_LOGIN=false,AI_MOCK=false
+            --set-secrets DATABASE_URL=database-url:latest,GROQ_API_KEY=groq-api-key:latest,NEXTAUTH_SECRET=nextauth-secret:latest \
+            --set-env-vars STORAGE_DRIVER=gcs,GCS_BUCKET=${{ vars.GCS_BUCKET }},APP_URL=${{ vars.APP_URL }},NEXTAUTH_URL=${{ vars.APP_URL }},GROQ_TEXT_MODEL=openai/gpt-oss-120b,GROQ_VISION_MODEL=qwen/qwen3.8-27b,DEMO_LOGIN=false,AI_MOCK=false

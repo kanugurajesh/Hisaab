@@ -5,22 +5,8 @@ import { SubmitButton } from "@/components/forms";
 import { register } from "./actions";
 
 export function RegisterForm({ code, amount, nudgeToken, defaultName }: { code: string; amount: number; nudgeToken?: string; defaultName?: string }) {
+  // On success the action redirects back to the invite page, which shows the payment's status.
   const [state, action] = useActionState(register.bind(null, code), undefined);
-
-  if (state?.ok) {
-    const verified = state.status === "VERIFIED";
-    return (
-      <div className={`rounded-2xl p-5 text-center ${verified ? "bg-emerald-50" : "bg-amber-50"}`} role="status">
-        <div className="text-3xl">{verified ? "✅" : "🕐"}</div>
-        <h2 className="mt-2 font-semibold">{verified ? "Payment verified. Thank you!" : "Registered! The organizer will confirm your payment."}</h2>
-        {!verified && state.issues.length > 0 && (
-          <p className="mt-2 text-sm text-amber-800">
-            We couldn&apos;t auto-verify: {state.issues.join(", ").toLowerCase()}. No action needed unless you entered something wrong.
-          </p>
-        )}
-      </div>
-    );
-  }
 
   return (
     <form action={action} className="space-y-3">

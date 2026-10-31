@@ -28,7 +28,6 @@ printf 'postgresql://hisaab:<pw>@localhost/hisaab?host=/cloudsql/%s:%s:hisaab-db
   | gcloud secrets create database-url --data-file=-
 printf '%s' "$GROQ_API_KEY" | gcloud secrets create groq-api-key --data-file=-
 openssl rand -base64 32 | gcloud secrets create nextauth-secret --data-file=-
-printf '%s' "$GOOGLE_CLIENT_SECRET" | gcloud secrets create google-client-secret --data-file=-
 ```
 
 Grant the Cloud Run runtime service account `roles/cloudsql.client`, `roles/secretmanager.secretAccessor` and `roles/storage.objectAdmin` on the bucket.
@@ -45,7 +44,6 @@ Create a Workload Identity pool and provider for GitHub, plus a deploy service a
 | Variable | `CLOUDSQL_INSTANCE` | `your-project-id:asia-south1:hisaab-db` |
 | Variable | `GCS_BUCKET` | `your-project-id-hisaab-proofs` |
 | Variable | `APP_URL` | `https://hisaab-xxxx.a.run.app` |
-| Variable | `GOOGLE_CLIENT_ID` | OAuth client id (redirect URI: `$APP_URL/api/auth/callback/google`) |
 
 Every push to `main` runs CI. Only when CI is green does the deploy workflow run:
 

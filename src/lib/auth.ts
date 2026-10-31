@@ -1,16 +1,31 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { DUMMY_HASH, verifyPassword } from "@/lib/password";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const demoLoginEnabled = process.env.DEMO_LOGIN === "true";
 
-const providers: NextAuthOptions["providers"] = [];
-if (process.env.GOOGLE_CLIENT_ID) {
-  providers.push(GoogleProvider({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "" }));
-}
+const providers: NextAuthOptions["providers"] = [
+  CredentialsProvider({
+    id: "password",
+    name: "Email and password",
+    credentials: { email: { type: "email" }, password: { type: "password" } },
+    authorize: async (credentials) => {
+      const email = credentials?.email?.trim().toLowerCase();
+      const password = credentials?.password;
+      if (!email || !password) return null;
+      if (!rateLimit(`login:${email}`, 10, 10 * 60_000)) throw new Error("Too many attempts. Please try again in a few minutes.");
+
+      const user = await prisma.user.findUnique({ where: { email } });
+      const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
+      if (!user?.passwordHash || !ok) return null;
+      return { id: user.id, email: user.email, name: user.name };
+    },
+  }),
+];
 if (demoLoginEnabled) {
   providers.push(
     CredentialsProvider({
