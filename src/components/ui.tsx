@@ -4,9 +4,8 @@ import type { RosterStatus, VerificationStatus } from "@prisma/client";
 export function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-      <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-600 text-white">C</span>
-      <span>Choruss</span>
-      <span className="badge bg-brand-50 text-brand-700">Hisaab</span>
+      <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-600 text-white">H</span>
+      <span>Hisaab</span>
     </Link>
   );
 }

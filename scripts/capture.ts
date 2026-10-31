@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { chromium, devices, type BrowserContext, type FrameLocator, type Locator, type Page } from "@playwright/test";
+import sharp from "sharp";
 import { renderReceipt } from "../eval/lib/renderReceipt";
 
 const BASE = process.env.APP_URL ?? "http://localhost:3000";
@@ -30,6 +31,23 @@ const HIDE_DEV_BADGE = `document.addEventListener("DOMContentLoaded", () => {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Lazy proof/bill thumbnails load late; wait until every on-screen image has pixels.
+async function imagesLoaded(page: Page) {
+  await page
+    .waitForFunction(
+      () =>
+        [...document.images]
+          .filter((i) => {
+            const r = i.getBoundingClientRect();
+            return r.bottom > 0 && r.top < innerHeight && r.width > 0;
+          })
+          .every((i) => i.complete && i.naturalWidth > 0),
+      undefined,
+      { timeout: 15_000 },
+    )
+    .catch(() => console.warn("  (some images did not load)"));
+}
+
 async function loginAndOpenEvent(page: Page) {
   await page.goto(`${BASE}/login`);
   await page.getByRole("button", { name: /demo organizer/i }).click();
@@ -41,9 +59,23 @@ async function loginAndOpenEvent(page: Page) {
 const tab = (page: Page, name: RegExp | string) =>
   page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name, exact: typeof name === "string" });
 
+// First person on the "Not paid yet" list, pinned by name (the button text changes once a draft exists).
+async function reminderRow(page: Page) {
+  const row = page.locator("li", { has: page.getByRole("button", { name: /Write reminder/ }) }).first();
+  const id = await row.evaluate((el) => (el.dataset.capture = "reminder-row"));
+  return page.locator(`li[data-capture="${id}"]`);
+}
+
+// A rendered UPI receipt, framed like a phone screenshot (status bar + nav bar) so its
+// perceptual hash differs from the seeded receipts, which use the bare template.
 async function proof(payer: string) {
   const when = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
-  return renderReceipt({ style: "purple", status: "success", amount: 500, payeeName: "Ravi Kumar", payeeVpa: "ravi.kumar@okicici", payerName: payer, bank: "HDFC Bank", utr: "430599887766", when });
+  const receipt = await renderReceipt({ style: "blue", status: "success", amount: 500, payeeName: "Ravi Kumar", payeeVpa: "ravi.kumar@okicici", payerName: payer, bank: "HDFC Bank", utr: "430599887766", when });
+  const chrome = `<svg width="620" height="1380"><rect y="1250" width="620" height="130" fill="#e5e7eb"/><circle cx="310" cy="1315" r="30" fill="#9ca3af"/></svg>`;
+  return sharp({ create: { width: 620, height: 1380, channels: 3, background: "#111827" } })
+    .composite([{ input: receipt, top: 110, left: 40 }, { input: Buffer.from(chrome), top: 0, left: 0 }])
+    .png()
+    .toBuffer();
 }
 
 // ---------------------------------------------------------------- screenshots
@@ -57,6 +89,7 @@ async function shots() {
   const page = await ctx.newPage();
   const shot = async (name: string, fullPage = false) => {
     await page.waitForLoadState("networkidle");
+    await imagesLoaded(page);
     await sleep(400);
     await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
     console.log(`  ${name}.png`);
@@ -67,29 +100,38 @@ async function shots() {
   await loginAndOpenEvent(page);
   await shot("01-overview", true);
 
+  // Scroll so `heading` sits just below the top edge, then take a viewport shot.
+  const shotAt = async (name: string, heading: Locator, offset = 24) => {
+    await heading.evaluate((el, o) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - o), offset);
+    await shot(name);
+  };
+  const cardOf = (heading: Locator) => heading.locator("xpath=ancestor::section[1]");
+
   await tab(page, /hasn't paid/).click();
   await page.getByRole("heading", { name: /Not paid yet/ }).waitFor();
-  await shot("02-who-hasnt-paid", true);
+  await shotAt("02-who-hasnt-paid", page.getByRole("heading", { name: /Not paid yet/ }), 140);
+  await page.waitForLoadState("networkidle");
+  await cardOf(page.getByRole("heading", { name: /Likely paid/ })).screenshot({ path: path.join(SHOTS, "03-likely-paid.png") });
+  console.log("  03-likely-paid.png");
 
-  const person = page.locator("li", { has: page.getByRole("button", { name: /Write reminder/ }) }).first();
+  const person = await reminderRow(page);
   await person.getByLabel("Reminder language").selectOption("te");
   await person.getByRole("button", { name: /Write reminder/ }).click();
   await person.getByLabel("Reminder message").waitFor();
-  await person.scrollIntoViewIfNeeded();
-  await page.evaluate(() => window.scrollBy(0, -120));
-  await shot("03-reminder");
+  await shotAt("04-reminder", page.getByRole("heading", { name: /Not paid yet/ }), 24);
 
   await tab(page, /Payments/).click();
   await page.getByRole("heading", { name: /Review queue/ }).waitFor();
-  await shot("04-review-queue");
+  await shotAt("05-review-queue", page.getByRole("heading", { name: /Review queue/ }), 24);
 
   await tab(page, /Expenses/).click();
   await page.getByRole("heading", { name: "Expenses", exact: true }).waitFor();
-  await shot("05-expenses", true);
+  await shot("06-expenses");
+  await shotAt("07-bill-flagged", page.getByRole("heading", { name: /Worth a look/ }), 24);
 
   await tab(page, "Close").click();
   await page.getByRole("heading", { name: "Balance per person" }).waitFor();
-  await shot("06-close-and-settle");
+  await shot("08-close-and-settle");
 
   // Contributor side, on a phone.
   const phone = await browser.newContext({ ...devices["iPhone 13"], deviceScaleFactor: 2 });
@@ -97,14 +139,15 @@ async function shots() {
   const mobile = await phone.newPage();
   const mshot = async (name: string, fullPage = false) => {
     await mobile.waitForLoadState("networkidle");
+    await imagesLoaded(mobile);
     await sleep(400);
     await mobile.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
     console.log(`  ${name}.png`);
   };
   await mobile.goto(INVITE);
-  await mshot("07-contributor-invite");
-  await mobile.locator("#ledger").scrollIntoViewIfNeeded();
-  await mshot("08-contributor-ledger");
+  await mshot("09-contributor-invite");
+  await mobile.locator("#ledger").evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 12));
+  await mshot("10-contributor-ledger");
 
   await browser.close();
 }
@@ -269,6 +312,8 @@ async function video() {
   const ctx: BrowserContext = await browser.newContext({
     viewport: { width: W, height: H },
     recordVideo: { dir: raw, size: { width: W, height: H } },
+    // Fresh rate-limit bucket (registration allows 10 attempts / 10 min per IP).
+    extraHTTPHeaders: { "x-forwarded-for": `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}` },
   });
   await ctx.addInitScript(HIDE_DEV_BADGE);
   await ctx.addInitScript(OVERLAY);
@@ -313,11 +358,11 @@ async function video() {
   const likely = page.getByRole("heading", { name: /Likely paid/ });
   if (await likely.count()) {
     await d.scrollTo(likely, "start", 900);
-    await d.caption("1 · Who hasn't paid?", "The ones that aren't certain come here: “Seenu 🪔” in the group registered as “Srinivas Rao”. The organizer confirms with one tap.", 4500);
+    await d.caption("1 · Who hasn't paid?", "The ones that aren't certain come here: “Lakshmi Iyer” in the group registered as “Laxmi Iyer”. The organizer confirms with one tap.", 4500);
     await d.click(page.getByRole("button", { name: "Same person" }).first(), 2000);
   }
   await d.scrollTop(800);
-  const person = page.locator("li", { has: page.getByRole("button", { name: /Write reminder/ }) }).first();
+  const person = await reminderRow(page);
   await d.caption("2 · Reminders", "AI writes a personal reminder in English, Hindi or Telugu. Code checks it contains the exact amount and link, or uses a safe template instead.", 1500);
   await d.moveTo(person.getByLabel("Reminder language"), 400);
   await person.getByLabel("Reminder language").selectOption("te");
@@ -386,7 +431,7 @@ async function video() {
   const flagged = page.getByRole("heading", { name: /Worth a look/ });
   if (await flagged.count()) {
     await d.scrollTo(flagged, "start", 800);
-    await d.caption("4 · Where did the money go?", "Rules check every bill: typed amount matches the total, line items add up, the date fits, and it isn't logged twice.", 4500);
+    await d.caption("4 · Where did the money go?", "Flagged: the bill says ₹12,000 but ₹8,000 was logged. Rules also check the items add up, the date fits, and nothing is logged twice.", 4500);
   }
   await d.scrollTo(page.getByRole("heading", { name: "Expenses", exact: true }), "start", 800);
   await d.caption("4 · Where did the money go?", "Bill coverage shows how much of the spending is backed by a bill.", 3000);
@@ -397,7 +442,7 @@ async function video() {
 
   // --- Close
   await d.scrollTop(400);
-  await d.caption("Close & settle", "When it's over: collected, spent, surplus, and each person's share. “Gets back ₹120” / “owes ₹80”.", 800);
+  await d.caption("Close & settle", "When it's over: collected, spent, surplus, the equal share per person, and who gets money back or still owes.", 800);
   await d.click(tab(page, "Close"), 1500);
   await page.getByRole("heading", { name: "Balance per person" }).waitFor();
   await sleep(2500);

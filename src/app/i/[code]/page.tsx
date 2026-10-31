@@ -57,7 +57,7 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
         </>
       )}
       <Ledger event={event} />
-      <p className="text-center text-xs text-slate-400">Choruss never holds money. You pay the organizer directly.</p>
+      <p className="text-center text-xs text-slate-400">Hisaab never holds money. You pay the organizer directly.</p>
     </main>
   );
 }

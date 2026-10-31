@@ -36,7 +36,7 @@ export default async function Home() {
           <span className="text-brand-600">Chase no one.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-slate-600">
-          Choruss shows who paid. Hisaab shows who <em>hasn&apos;t</em>, and verifies every UPI screenshot for you.
+          See who <em>hasn&apos;t</em> paid, nudge them on WhatsApp, and verify every UPI screenshot automatically.
         </p>
         <Link href="/login" className="btn-primary mt-8 px-6 py-3 text-base">
           Start a collection

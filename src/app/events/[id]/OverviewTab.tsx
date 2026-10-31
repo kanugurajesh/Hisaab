@@ -48,7 +48,7 @@ export async function OverviewTab({ event, stats }: { event: Event; stats: Stats
           </>
         ) : (
           <p className="text-sm text-slate-600">
-            Choruss only knows who has registered. <Link href="?tab=roster" className="font-medium text-brand-700 underline">Import your WhatsApp group</Link>{" "}
+            Hisaab only knows who has registered. <Link href="?tab=roster" className="font-medium text-brand-700 underline">Import your WhatsApp group</Link>{" "}
             to see who hasn&apos;t paid yet.
           </p>
         )}

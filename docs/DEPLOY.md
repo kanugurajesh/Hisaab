@@ -12,19 +12,19 @@ gcloud services enable run.googleapis.com sqladmin.googleapis.com artifactregist
   secretmanager.googleapis.com iamcredentials.googleapis.com
 
 # Images
-gcloud artifacts repositories create choruss --repository-format=docker --location=$REGION
+gcloud artifacts repositories create hisaab --repository-format=docker --location=$REGION
 
 # Database
-gcloud sql instances create choruss-db --database-version=POSTGRES_16 --tier=db-f1-micro --region=$REGION
-gcloud sql databases create choruss --instance=choruss-db
-gcloud sql users create choruss --instance=choruss-db --password='<strong-password>'
+gcloud sql instances create hisaab-db --database-version=POSTGRES_16 --tier=db-f1-micro --region=$REGION
+gcloud sql databases create hisaab --instance=hisaab-db
+gcloud sql users create hisaab --instance=hisaab-db --password='<strong-password>'
 
 # Private bucket for proofs (never public; served through an authenticated route)
-gcloud storage buckets create gs://$PROJECT-choruss-proofs --location=$REGION --uniform-bucket-level-access \
+gcloud storage buckets create gs://$PROJECT-hisaab-proofs --location=$REGION --uniform-bucket-level-access \
   --public-access-prevention
 
 # Secrets
-printf 'postgresql://choruss:<pw>@localhost/choruss?host=/cloudsql/%s:%s:choruss-db' $PROJECT $REGION \
+printf 'postgresql://hisaab:<pw>@localhost/hisaab?host=/cloudsql/%s:%s:hisaab-db' $PROJECT $REGION \
   | gcloud secrets create database-url --data-file=-
 printf '%s' "$GROQ_API_KEY" | gcloud secrets create groq-api-key --data-file=-
 openssl rand -base64 32 | gcloud secrets create nextauth-secret --data-file=-
@@ -42,9 +42,9 @@ Create a Workload Identity pool and provider for GitHub, plus a deploy service a
 | Secret | `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/123/locations/global/workloadIdentityPools/github/providers/github` |
 | Secret | `GCP_DEPLOY_SERVICE_ACCOUNT` | `deployer@PROJECT.iam.gserviceaccount.com` |
 | Variable | `GCP_PROJECT_ID` | `your-project-id` |
-| Variable | `CLOUDSQL_INSTANCE` | `your-project-id:asia-south1:choruss-db` |
-| Variable | `GCS_BUCKET` | `your-project-id-choruss-proofs` |
-| Variable | `APP_URL` | `https://choruss-hisaab-xxxx.a.run.app` |
+| Variable | `CLOUDSQL_INSTANCE` | `your-project-id:asia-south1:hisaab-db` |
+| Variable | `GCS_BUCKET` | `your-project-id-hisaab-proofs` |
+| Variable | `APP_URL` | `https://hisaab-xxxx.a.run.app` |
 | Variable | `GOOGLE_CLIENT_ID` | OAuth client id (redirect URI: `$APP_URL/api/auth/callback/google`) |
 
 Every push to `main` runs CI. Only when CI is green does the deploy workflow run:

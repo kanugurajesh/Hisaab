@@ -77,7 +77,7 @@ Choruss only learns about people *after* they pay and register. Hisaab fills tha
 - **Pay in one tap:** a UPI deep link (works with GPay, PhonePe, Paytm, BHIM) prefilled with the amount and note, plus a **UPI QR code** for desktop users and a copyable UPI ID.
 - **Register with a screenshot** and get an instant result: *Verified*, or a list of what looked off.
 - **Mobile-first.** The whole flow is tested on a phone viewport.
-- Choruss never holds money: people pay the organizer directly.
+- Hisaab never holds money: people pay the organizer directly.
 
 ### 📊 7. Organizer dashboard
 

@@ -9,8 +9,8 @@ on:
 
 env:
   REGION: asia-south1
-  SERVICE: choruss-hisaab
-  REPO: asia-south1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/choruss
+  SERVICE: hisaab
+  REPO: asia-south1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/hisaab
 
 jobs:
   deploy:
@@ -41,7 +41,7 @@ jobs:
 
       - name: Run database migrations
         run: |
-          gcloud run jobs deploy choruss-migrate \
+          gcloud run jobs deploy hisaab-migrate \
             --image $REPO/migrate:${{ github.event.workflow_run.head_sha }} \
             --region $REGION \
             --set-cloudsql-instances ${{ vars.CLOUDSQL_INSTANCE }} \
