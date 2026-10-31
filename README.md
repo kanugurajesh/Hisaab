@@ -71,11 +71,15 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
   <img src="docs/screenshots/12-contributor-confirmed.png" alt="Payment confirmed: receipt, event time, venue, note, calendar and directions" width="300">
 </p>
 
+**The receipt doubles as a pass.** Its QR opens this same page, so scanning it at the door shows whether the payment is confirmed right now.
+
+<img src="docs/screenshots/14-receipt.png" alt="Contribution receipt with receipt number, event details and a QR code" width="300">
+
 **Event details.** The organizer sets the start time, venue and a note, which contributors see once their payment is confirmed.
 
 ![Event details form on the organizer overview](docs/screenshots/13-event-details.png)
 
-<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>). Screenshots 11–13 were captured by hand.</sub>
+<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>). Screenshots 11–14 were captured from the same seeded demo with a one-off Playwright script.</sub>
 
 ---
 

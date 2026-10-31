@@ -48,7 +48,7 @@ export function CreateEventForm({ defaultName }: { defaultName: string }) {
       </div>
       <div className="flex items-end justify-between gap-3 sm:col-span-2">
         <FormMessage state={state} />
-        <SubmitButton pendingText="Creating…">Create collection</SubmitButton>
+        <SubmitButton className="btn-primary ml-auto" pendingText="Creating…">Create collection</SubmitButton>
       </div>
     </form>
   );

@@ -31,7 +31,7 @@ export function EventDetailsForm({ event }: { event: Pick<Event, "id" | "startTi
       </div>
       <div className="flex items-center justify-between gap-3 sm:col-span-2">
         <FormMessage state={state} />
-        <SubmitButton pendingText="Saving…">Save details</SubmitButton>
+        <SubmitButton className="btn-primary ml-auto" pendingText="Saving…">Save details</SubmitButton>
       </div>
     </form>
   );
