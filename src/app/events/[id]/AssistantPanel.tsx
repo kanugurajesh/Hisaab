@@ -65,26 +65,41 @@ export function AssistantPanel({ eventId, perHead }: { eventId: string; perHead:
         <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1" aria-live="polite">
           {messages.map((m, i) =>
             m.role === "user" ? (
-              <div key={i} className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-brand-600 px-3.5 py-2 text-sm text-white">
+              <div key={i} className="ml-auto w-fit max-w-[85%] origin-bottom-right animate-pop rounded-2xl rounded-br-sm bg-brand-600 px-3.5 py-2 text-sm text-white [animation-duration:220ms]">
                 {m.text}
               </div>
             ) : m.role === "error" ? (
-              <div key={i} className="w-fit max-w-[85%] rounded-2xl rounded-bl-sm bg-rose-50 px-3.5 py-2 text-sm text-rose-700" role="alert">
+              <div key={i} className="w-fit max-w-[85%] animate-enter rounded-2xl rounded-bl-sm bg-rose-50 px-3.5 py-2 text-sm text-rose-700" role="alert">
                 {m.text}
               </div>
             ) : (
               <Answer key={i} answer={m.answer} onAsk={ask} />
             ),
           )}
-          {pending && <div className="w-fit rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2 text-sm text-slate-500">Looking it up…</div>}
+          {pending && (
+            <div className="flex w-fit animate-enter items-center gap-2 rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2 text-sm text-slate-500">
+              <span className="flex gap-1" aria-hidden>
+                {[0, 150, 300].map((d) => (
+                  <span key={d} className="h-1.5 w-1.5 animate-typing rounded-full bg-slate-400" style={{ animationDelay: `${d}ms` }} />
+                ))}
+              </span>
+              Looking it up…
+            </div>
+          )}
           <div ref={end} />
         </div>
       )}
 
       {messages.length === 0 && (
         <div className="flex flex-wrap gap-2">
-          {suggestions.map((s) => (
-            <button key={s} type="button" className="btn-secondary text-xs" onClick={() => ask(s)}>
+          {suggestions.map((s, i) => (
+            <button
+              key={s}
+              type="button"
+              className="btn-secondary animate-enter rounded-full text-xs hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+              style={{ animationDelay: `${i * 35}ms` }}
+              onClick={() => ask(s)}
+            >
               {s}
             </button>
           ))}
@@ -118,12 +133,12 @@ function Answer({ answer: a, onAsk }: { answer: AssistantAnswer; onAsk: (q: stri
   // Help lists example questions: make them tappable.
   const examples = !a.draft && !a.link && a.items?.every((i) => !i.amount && !i.badge && !i.detail);
   return (
-    <div className="max-w-[92%] space-y-2 rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5 text-sm" data-testid="assistant-answer">
+    <div className="max-w-[92%] animate-enter space-y-2 rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5 text-sm" data-testid="assistant-answer">
       <p>{a.text}</p>
       {a.items && a.items.length > 0 && examples && (
         <div className="flex flex-wrap gap-1.5">
           {a.items.map((i) => (
-            <button key={i.label} type="button" className="btn-secondary px-2.5 py-1 text-xs" onClick={() => onAsk(i.label)}>
+            <button key={i.label} type="button" className="btn-secondary rounded-full px-2.5 py-1 text-xs" onClick={() => onAsk(i.label)}>
               {i.label}
             </button>
           ))}
@@ -138,7 +153,7 @@ function Answer({ answer: a, onAsk }: { answer: AssistantAnswer; onAsk: (q: stri
                 {i.detail && <span className="block truncate text-xs text-slate-500">{i.detail}</span>}
               </span>
               <span className="flex shrink-0 items-center gap-2">
-                {i.amount !== undefined && <span className="font-medium">{inr(i.amount)}</span>}
+                {i.amount !== undefined && <span className="tabular font-medium">{inr(i.amount)}</span>}
                 {i.badge && <span className={`badge ${TONE[i.badge.tone]}`}>{i.badge.text}</span>}
               </span>
             </li>

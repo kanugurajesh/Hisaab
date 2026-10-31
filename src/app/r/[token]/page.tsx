@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { AutoRefresh, PrintButton } from "@/components/AutoRefresh";
-import { Logo } from "@/components/ui";
+import { Logo, OutcomeIcon, Stamp } from "@/components/ui";
 import { formatTime } from "@/lib/calendar";
 import { readContributionId, receiptNumber, receiptPath } from "@/lib/contributionToken";
 import { prisma } from "@/lib/db";
@@ -31,7 +31,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ token:
   const rows: [string, React.ReactNode][] = [
     ["Receipt no.", <span key="n" className="font-mono">{receiptNumber(c.id)}</span>],
     ["Paid by", c.name],
-    ["Amount", <span key="a" className="font-semibold">{inr(c.amount)}</span>],
+    ["Amount", <span key="a" className="tabular font-display text-base font-extrabold">{inr(c.amount)}</span>],
     ["For", event.name],
     ["Event", `${longDate(event.date)}${time ? `, ${time}` : ""}`],
     ...(event.venue ? ([["Venue", event.venue]] as [string, string][]) : []),
@@ -49,19 +49,28 @@ export default async function ReceiptPage({ params }: { params: Promise<{ token:
       <Logo />
       <section className="card space-y-4 print:border-0 print:shadow-none">
         <div
-          className={`rounded-2xl p-4 text-center ${confirmed ? "bg-emerald-50 text-emerald-800" : rejected ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"}`}
+          className={`rounded-2xl p-5 text-center ${confirmed ? "bg-emerald-50 text-emerald-800" : rejected ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800"}`}
           role="status"
         >
-          <div className="text-xs font-medium uppercase tracking-wide">Contribution receipt</div>
-          <div className="mt-1 text-lg font-semibold">
-            {confirmed ? "✅ Paid" : rejected ? "❌ Not valid: payment rejected by the organizer" : "🕐 Not confirmed yet"}
+          <div className="text-sm font-medium">Contribution receipt</div>
+          <div className="mt-3">
+            {confirmed ? (
+              <Stamp>Paid</Stamp>
+            ) : rejected ? (
+              <Stamp tone="void">Not valid</Stamp>
+            ) : (
+              <OutcomeIcon outcome="waiting" size={40} />
+            )}
+          </div>
+          <div className="mt-3 text-sm font-medium">
+            {confirmed ? (s === "APPROVED" ? `Confirmed by ${event.organizerName}` : "Screenshot verified automatically") : rejected ? "The organizer rejected this payment" : "Not confirmed yet"}
           </div>
           {!confirmed && !rejected && <div className="mt-1 text-xs">{event.organizerName} hasn&apos;t confirmed this payment yet. This page updates by itself.</div>}
         </div>
 
         <dl className="divide-y divide-slate-100 text-sm">
           {rows.map(([label, value]) => (
-            <div key={label} className="flex justify-between gap-4 py-2">
+            <div key={label} className="flex items-baseline justify-between gap-4 py-2">
               <dt className="text-slate-500">{label}</dt>
               <dd className="text-right">{value}</dd>
             </div>

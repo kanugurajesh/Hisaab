@@ -17,21 +17,32 @@ export function SubmitButton({
   const { pending } = useFormStatus();
   return (
     <button type="submit" className={className} disabled={pending || disabled}>
-      {pending ? (pendingText ?? "Working…") : children}
+      {pending ? (
+        <>
+          <Spinner />
+          {pendingText ?? "Working…"}
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
+}
+
+export function Spinner() {
+  return <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden />;
 }
 
 export function FormMessage({ state }: { state?: { error?: string; message?: string } }) {
   if (state?.error)
     return (
-      <p className="text-sm text-rose-600" role="alert">
+      <p className="animate-enter text-sm text-rose-600" role="alert">
         {state.error}
       </p>
     );
   if (state?.message)
     return (
-      <p className="text-sm text-emerald-700" role="status">
+      <p className="animate-enter text-sm text-emerald-700" role="status">
         {state.message}
       </p>
     );
@@ -50,7 +61,13 @@ export function CopyButton({ text, label = "Copy", className = "btn-secondary" }
         setTimeout(() => setCopied(false), 1500);
       }}
     >
-      {copied ? "Copied ✓" : label}
+      {copied ? (
+        <span key="copied" className="inline-block animate-pop">
+          Copied ✓
+        </span>
+      ) : (
+        label
+      )}
     </button>
   );
 }

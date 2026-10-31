@@ -56,7 +56,7 @@ export function RemindPanel({ rosterId, attempts }: { rosterId: string; attempts
         </button>
       </div>
       {draft && (
-        <div className="mt-2 space-y-2 rounded-xl bg-slate-50 p-3">
+        <div className="mt-2 animate-enter space-y-2 rounded-xl bg-slate-50 p-3">
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span className="badge bg-white text-slate-600">{TONE_LABEL[draft.tone]}</span>
             {draft.usedFallback && <span title="The AI draft failed our checks, so a safe template was used">template</span>}
@@ -83,7 +83,7 @@ export function GroupNudge({ eventId }: { eventId: string }) {
         {pending ? "Preparing…" : "Group message"}
       </button>
       {text && (
-        <div className="w-full max-w-md space-y-2 rounded-xl bg-slate-50 p-3">
+        <div className="w-full max-w-md animate-enter space-y-2 rounded-xl bg-slate-50 p-3">
           <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{text}</pre>
           <div className="flex gap-2">
             <a className="btn-whatsapp text-xs" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">

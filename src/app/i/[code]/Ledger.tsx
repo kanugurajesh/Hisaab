@@ -23,17 +23,17 @@ export async function Ledger({ event }: { event: Event }) {
       <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-slate-50 p-2">
           <dt className="text-xs text-slate-500">Collected</dt>
-          <dd className="font-semibold">{inr(stats.collected)}</dd>
+          <dd className="tabular font-display font-extrabold">{inr(stats.collected)}</dd>
           <dd className="text-[11px] text-slate-400">{stats.registrations} people</dd>
         </div>
         <div className="rounded-xl bg-slate-50 p-2">
           <dt className="text-xs text-slate-500">Spent</dt>
-          <dd className="font-semibold">{inr(total)}</dd>
+          <dd className="tabular font-display font-extrabold">{inr(total)}</dd>
           <dd className="text-[11px] text-slate-400">{expenses.length} items</dd>
         </div>
         <div className="rounded-xl bg-slate-50 p-2">
           <dt className="text-xs text-slate-500">{balance >= 0 ? "Balance" : "Shortfall"}</dt>
-          <dd className={`font-semibold ${balance >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{inr(Math.abs(balance))}</dd>
+          <dd className={`tabular font-display font-extrabold ${balance >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{inr(Math.abs(balance))}</dd>
           <dd className="text-[11px] text-slate-400">{closed ? "final" : "so far"}</dd>
         </div>
       </dl>
@@ -47,7 +47,7 @@ export async function Ledger({ event }: { event: Event }) {
                 <span className="text-slate-500">{inr(amt)}</span>
               </div>
               <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                <div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.max(2, (amt / total) * 100)}%` }} />
+                <div className="h-full origin-left animate-fill rounded-full bg-brand-500" style={{ width: `${Math.max(2, (amt / total) * 100)}%` }} />
               </div>
             </li>
           ))}

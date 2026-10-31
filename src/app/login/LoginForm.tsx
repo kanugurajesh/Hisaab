@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Spinner } from "@/components/forms";
 import { signUp } from "./actions";
 
 export function LoginForm({ demo }: { demo: boolean }) {
@@ -32,12 +33,12 @@ export function LoginForm({ demo }: { demo: boolean }) {
 
   return (
     <>
-      <h1 className="text-lg font-semibold">{signingUp ? "Create an organizer account" : "Sign in as an organizer"}</h1>
+      <h1 key={mode} className="animate-enter text-xl font-extrabold">{signingUp ? "Create an organizer account" : "Sign in as an organizer"}</h1>
       <p className="mb-4 mt-1 text-sm text-slate-500">Contributors don&apos;t need an account — they register from your invite link.</p>
 
       <form onSubmit={submit} className="space-y-3">
         {signingUp && (
-          <div>
+          <div className="animate-enter">
             <label className="label" htmlFor="name">Your name</label>
             <input id="name" name="name" className="input" autoComplete="name" required />
           </div>
@@ -60,12 +61,21 @@ export function LoginForm({ demo }: { demo: boolean }) {
           {signingUp && <p className="mt-1 text-xs text-slate-500">At least 8 characters.</p>}
         </div>
         {error && (
-          <p className="text-sm text-rose-600" role="alert">
+          <p className="animate-enter text-sm text-rose-600" role="alert">
             {error}
           </p>
         )}
         <button type="submit" className="btn-primary w-full py-2.5" disabled={pending}>
-          {pending ? (signingUp ? "Creating account…" : "Signing in…") : signingUp ? "Create account" : "Sign in"}
+          {pending ? (
+            <>
+              <Spinner />
+              {signingUp ? "Creating account…" : "Signing in…"}
+            </>
+          ) : signingUp ? (
+            "Create account"
+          ) : (
+            "Sign in"
+          )}
         </button>
       </form>
 

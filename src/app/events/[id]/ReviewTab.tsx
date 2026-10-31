@@ -109,7 +109,7 @@ export async function ReviewTab({ event }: { event: Event }) {
         {contributions.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-slate-500">
+              <thead className="text-left text-xs text-slate-500">
                 <tr>
                   <th className="py-2 pr-3 font-medium">Name</th>
                   <th className="py-2 pr-3 font-medium">Amount</th>

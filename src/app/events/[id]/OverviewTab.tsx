@@ -25,10 +25,11 @@ export async function OverviewTab({ event, stats }: { event: Event; stats: Stats
   return (
     <div className="space-y-5">
       <section className="card">
-        <div className="mb-2 flex items-baseline justify-between">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 className="font-semibold">Collection progress</h2>
-          <span className="text-sm text-slate-500">
-            {inr(stats.collected)} of {stats.expected ? inr(stats.expectedAmount) : "—"}
+          <span className="tabular text-sm text-slate-500">
+            <span className="font-display text-xl font-extrabold text-ink">{inr(stats.collected)}</span> of{" "}
+            {stats.expected ? inr(stats.expectedAmount) : "—"}
           </span>
         </div>
         {stats.expected ? (
@@ -81,17 +82,17 @@ export async function OverviewTab({ event, stats }: { event: Event; stats: Stats
           <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
             <div>
               <dt className="text-xs text-slate-500">Reminders sent</dt>
-              <dd className="text-xl font-semibold">{funnel.sent}</dd>
+              <dd className="tabular font-display text-xl font-extrabold">{funnel.sent}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">People nudged</dt>
-              <dd className="text-xl font-semibold">{funnel.peopleNudged}</dd>
+              <dd className="tabular font-display text-xl font-extrabold">{funnel.peopleNudged}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">Paid after nudge</dt>
-              <dd className="text-xl font-semibold text-emerald-600">
+              <dd className="tabular font-display text-xl font-extrabold text-emerald-700">
                 {funnel.converted}
-                {funnel.peopleNudged > 0 && <span className="text-sm text-slate-400"> ({Math.round((funnel.converted / funnel.peopleNudged) * 100)}%)</span>}
+                {funnel.peopleNudged > 0 && <span className="font-sans text-sm font-normal text-slate-400"> ({Math.round((funnel.converted / funnel.peopleNudged) * 100)}%)</span>}
               </dd>
             </div>
           </dl>
@@ -114,11 +115,11 @@ export async function OverviewTab({ event, stats }: { event: Event; stats: Stats
         {recent.length ? (
           <ul className="divide-y divide-slate-100">
             {recent.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+              <li key={c.id} className="-mx-2 flex items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-slate-50">
                 <span className="truncate">
                   {c.name} <span className="text-slate-400">· {relativeTime(c.createdAt)}</span>
                 </span>
-                <span className="flex shrink-0 items-center gap-2">
+                <span className="tabular flex shrink-0 items-center gap-2">
                   {inr(c.amount)} <VerificationBadge status={c.verificationStatus} />
                 </span>
               </li>

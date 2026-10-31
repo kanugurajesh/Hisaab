@@ -50,7 +50,7 @@ test("organizer finds who hasn't paid, contributor proof is verified, duplicate 
   // Once paid: the event details and a receipt that doubles as a pass.
   await expect(page.getByRole("link", { name: "Add to Google Calendar" })).toBeVisible();
   await page.getByRole("link", { name: "View receipt" }).click();
-  await expect(page.getByText("✅ Paid")).toBeVisible();
+  await expect(page.getByRole("status").getByText("Paid", { exact: true })).toBeVisible();
   await expect(page.getByText(/HSB-[A-Z0-9]{8}/)).toBeVisible();
 
   // Same screenshot reused by someone else: must not auto-verify.

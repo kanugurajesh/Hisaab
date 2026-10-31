@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { formatTime, googleCalendarUrl, mapsUrl } from "@/lib/calendar";
 import { receiptPath } from "@/lib/contributionToken";
+import { OutcomeIcon } from "@/components/ui";
 import { inr, longDate, shortDate } from "@/lib/format";
 import type { Check, CheckId } from "@/lib/verify/rules";
 
@@ -41,8 +42,8 @@ export function PaymentStatus({ contribution: c, event }: { contribution: Contri
     <section className="card space-y-4">
       {waiting && <AutoRefresh />}
       <div className={`rounded-2xl p-5 text-center ${confirmed ? "bg-emerald-50" : rejected ? "bg-rose-50" : "bg-amber-50"}`} role="status">
-        <div className="text-3xl">{confirmed ? "✅" : rejected ? "❌" : "🕐"}</div>
-        <h2 className="mt-2 font-semibold">
+        <OutcomeIcon outcome={confirmed ? "confirmed" : rejected ? "rejected" : "waiting"} />
+        <h2 className="mt-3 text-lg leading-snug font-semibold text-balance">
           {s === "VERIFIED"
             ? "Payment verified. Thank you!"
             : s === "APPROVED"
@@ -51,7 +52,7 @@ export function PaymentStatus({ contribution: c, event }: { contribution: Contri
                 ? `${organizerName} couldn't confirm this payment.`
                 : "Registered! The organizer will confirm your payment."}
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="tabular mt-1 text-sm text-slate-600">
           {c.name} · {inr(c.amount)} · registered {shortDate(c.createdAt)}
         </p>
         {why.length > 0 && (
@@ -72,7 +73,11 @@ export function PaymentStatus({ contribution: c, event }: { contribution: Contri
         )}
       </div>
 
-      {confirmed && <EventDetails event={event} />}
+      {confirmed && (
+        <div className="animate-enter [animation-delay:350ms]">
+          <EventDetails event={event} />
+        </div>
+      )}
 
       <p className="text-center text-sm">
         <Link href="?new=1" className="text-brand-700 underline">

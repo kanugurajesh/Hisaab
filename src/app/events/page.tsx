@@ -17,25 +17,36 @@ export default async function EventsPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+      <main className="mx-auto max-w-5xl space-y-8 px-4 py-8">
         <section>
-          <h1 className="mb-3 text-xl font-semibold">Your collections</h1>
+          <h1 className="mb-4 text-2xl font-extrabold sm:text-3xl">Your collections</h1>
           {events.length ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              {events.map((e) => (
-                <Link key={e.id} href={`/events/${e.id}`} className="card transition hover:border-brand-500">
+              {events.map((e, i) => (
+                <Link
+                  key={e.id}
+                  href={`/events/${e.id}`}
+                  className="card group animate-enter transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-[0_10px_30px_-12px_rgb(29_27_87/0.25)]"
+                  style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="font-semibold">{e.name}</div>
+                    <div className="font-display text-lg leading-snug font-semibold group-hover:text-brand-700">{e.name}</div>
                     <span className={`badge ${e.status === "OPEN" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
                       {e.status === "OPEN" ? "Collecting" : "Closed"}
                     </span>
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
-                    {shortDate(e.date)} · {inr(e.perHeadAmount)} per head
+                    {shortDate(e.date)} · <span className="tabular">{inr(e.perHeadAmount)}</span> per head
                   </div>
-                  <div className="mt-3 flex gap-4 text-sm">
-                    <span>{e._count.contributions} registered</span>
-                    {e._count.roster > 0 && <span className="text-amber-700">{e._count.roster} not paid yet</span>}
+                  <div className="tabular mt-4 flex gap-4 border-t border-slate-100 pt-3 text-sm">
+                    <span>
+                      <b className="font-semibold">{e._count.contributions}</b> registered
+                    </span>
+                    {e._count.roster > 0 && (
+                      <span className="text-amber-700">
+                        <b className="font-semibold">{e._count.roster}</b> not paid yet
+                      </span>
+                    )}
                   </div>
                 </Link>
               ))}
