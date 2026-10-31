@@ -15,6 +15,19 @@ model User {
   passwordHash String?
   createdAt    DateTime @default(now())
   events       Event[]
+  funds        Fund[]
+}
+
+// A collection that repeats every month (a society fund). Each month is a
+// normal Event linked here, so everything that works for one collection works
+// per month; the fund page looks across them.
+model Fund {
+  id          String   @id @default(cuid())
+  organizerId String
+  organizer   User     @relation(fields: [organizerId], references: [id])
+  name        String
+  createdAt   DateTime @default(now())
+  months      Event[]
 }
 
 enum EventStatus {
@@ -27,6 +40,9 @@ model Event {
   organizerId     String
   organizer       User           @relation(fields: [organizerId], references: [id])
   name            String
+  fundId          String?
+  fund            Fund?          @relation(fields: [fundId], references: [id], onDelete: Cascade)
+  period          String? // "2026-11" for a month of a fund
   date            DateTime
   perHeadAmount   Int // rupees
   organizerName   String
@@ -43,6 +59,8 @@ model Event {
   expenses        Expense[]
   roster          RosterMember[]
   aiCalls         AiCall[]
+
+  @@unique([fundId, period])
 }
 
 enum VerificationStatus {
@@ -115,6 +133,8 @@ model RosterMember {
   event           Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   displayName     String
   phone           String?
+  // The same person across a fund's months: the id of their first month's row.
+  personKey       String?
   source          RosterSource
   status          RosterStatus  @default(PENDING)
   contributionId  String?       @unique

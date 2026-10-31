@@ -3,6 +3,8 @@ import { SubmitButton } from "@/components/forms";
 import { Empty, RosterBadge, VerificationBadge } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { inr, relativeTime } from "@/lib/format";
+import { earlierMisses, monthLabel } from "@/lib/funds/months";
+import { loadFundGrid } from "@/lib/services/funds";
 import type { getEventStats } from "@/lib/services/stats";
 import { resolveSuggestion, setExcluded } from "../actions";
 import { GroupNudge, RemindPanel } from "./RemindPanel";
@@ -23,6 +25,14 @@ export async function RosterTab({ event, stats }: { event: Event; stats: Stats }
   const unclaimed = await prisma.contribution.count({ where: { eventId: event.id, rosterMember: null, verificationStatus: { not: "REJECTED" } } });
   const group = (s: string) => roster.filter((r) => r.status === s);
   const [missing, suggested, paid, excluded] = [group("PENDING"), group("SUGGESTED"), group("MATCHED"), group("EXCLUDED")];
+  // In a monthly fund: who also missed the months right before this one.
+  const alsoMissed =
+    event.fundId && event.period && missing.length
+      ? earlierMisses(
+          await loadFundGrid(event.fundId, new Date(), { upTo: event.period, people: missing.map((m) => m.personKey ?? m.id) }),
+          event.period,
+        )
+      : new Map<string, string[]>();
 
   return (
     <div className="space-y-5">
@@ -59,6 +69,9 @@ export async function RosterTab({ event, stats }: { event: Event; stats: Stats }
                           {m.reminders[0]?.sentAt && ` · reminded ${m._count.reminders}× · last ${relativeTime(m.reminders[0].sentAt)}`}
                           {m.matchReason && ` · ${m.matchReason}`}
                         </div>
+                        {alsoMissed.has(m.id) && (
+                          <div className="text-xs font-medium text-amber-700">also missed {alsoMissed.get(m.id)!.map((p) => monthLabel(p, true)).join(", ")}</div>
+                        )}
                       </div>
                       <form action={setExcluded.bind(null, m.id, true)}>
                         <SubmitButton className="btn-ghost text-xs" pendingText="…">

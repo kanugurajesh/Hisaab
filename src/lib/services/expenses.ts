@@ -5,6 +5,7 @@ import { EXPENSE_CATEGORIES } from "@/lib/expenses/categories";
 import { extractBill, type BillExtraction } from "@/lib/expenses/extract";
 import { evaluateBill, findSimilarExpense, parseBillDate, type BillCheck } from "@/lib/expenses/rules";
 import { inr } from "@/lib/format";
+import { istIso } from "@/lib/ist";
 import { putObject } from "@/lib/storage";
 import { hammingDistance, prepareProofImage } from "@/lib/verify/image";
 
@@ -21,7 +22,7 @@ export const expenseInput = z.object({
 export type ExpenseResult = { error?: string; message?: string };
 
 function istToday(): string {
-  return new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  return istIso().slice(0, 10);
 }
 
 export async function addExpense(eventId: string, raw: Record<string, string | undefined>, bill: Buffer | null): Promise<ExpenseResult> {

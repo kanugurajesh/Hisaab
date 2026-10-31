@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { s } from "@/lib/ai/schema";
+import { matchesName } from "@/lib/format";
 import { normalizePhone } from "@/lib/phone";
 import { buildUpiLink, isValidUtr, isValidVpa } from "@/lib/upi";
 import { proofSchema } from "@/lib/verify/extract";
@@ -55,5 +56,14 @@ describe("image handling", () => {
     const a = await screenshot();
     const b = await sharp(a).jpeg({ quality: 40 }).toBuffer();
     expect(hammingDistance(await dhash(a), await dhash(b))).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("matchesName", () => {
+  it("forgives case and punctuation a phone keyboard makes hard, but not different words", () => {
+    expect(matchesName("sai nagar ganesh fund nov 2026", "Sai Nagar Ganesh Fund · Nov 2026")).toBe(true);
+    expect(matchesName("Sai Nagar Ganesh Fund - Nov 2026", "Sai Nagar Ganesh Fund · Nov 2026")).toBe(true);
+    expect(matchesName("Sai Nagar Ganesh Fund Oct 2026", "Sai Nagar Ganesh Fund · Nov 2026")).toBe(false);
+    expect(matchesName(" · ", "·")).toBe(false);
   });
 });

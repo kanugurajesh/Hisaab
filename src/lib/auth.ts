@@ -74,3 +74,11 @@ export async function requireEvent(eventId: string) {
   if (!event) redirect("/events");
   return event;
 }
+
+/** Loads a monthly fund only if it belongs to the signed-in organizer. */
+export async function requireFund(fundId: string) {
+  const user = await requireOrganizer();
+  const fund = await prisma.fund.findFirst({ where: { id: fundId, organizerId: user.id } });
+  if (!fund) redirect("/events");
+  return fund;
+}

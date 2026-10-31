@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -9,9 +10,10 @@ import { getObject } from "@/lib/storage";
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const code = new URL(req.url).searchParams.get("c");
-  let where: { id: string; event: { inviteCode: string } | { organizerId: string } };
+  let where: Prisma.ExpenseWhereInput;
   if (code) {
-    where = { id, event: { inviteCode: code } };
+    // A monthly fund's ledger shows every month's bills on each month's link.
+    where = { id, event: { OR: [{ inviteCode: code }, { fund: { months: { some: { inviteCode: code } } } }] } };
   } else {
     const session = await getServerSession(authOptions);
     const userId = (session?.user as { id?: string } | undefined)?.id;

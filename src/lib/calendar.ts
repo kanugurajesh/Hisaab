@@ -1,6 +1,8 @@
 // "Add to calendar" for the event a contributor paid for: a Google Calendar link
 // and an .ics file (Apple Calendar, Outlook). Event times are IST.
 
+import { IST_OFFSET_MS } from "./ist";
+
 export interface CalendarEvent {
   name: string;
   date: Date;
@@ -11,7 +13,6 @@ export interface CalendarEvent {
 }
 
 const DURATION_HOURS = 3;
-const IST_OFFSET_MS = 5.5 * 3600_000;
 
 /** The calendar day of the event, as the organizer picked it (stored as UTC midnight). */
 const day = (d: Date) => d.toISOString().slice(0, 10).replaceAll("-", "");

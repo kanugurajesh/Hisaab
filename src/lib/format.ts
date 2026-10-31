@@ -18,3 +18,12 @@ export function relativeTime(d: Date | string, now = new Date()): string {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
 }
+
+/**
+ * Typed confirmation of a name, forgiving what phone keyboards make hard:
+ * case, and punctuation like the "·" in "Ganesh Fund · Nov 2026".
+ */
+export function matchesName(typed: string, name: string): boolean {
+  const words = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return words(typed) !== "" && words(typed) === words(name);
+}

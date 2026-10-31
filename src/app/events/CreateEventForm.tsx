@@ -46,6 +46,16 @@ export function CreateEventForm({ defaultName }: { defaultName: string }) {
         </label>
         <input id="venue" name="venue" className="input" placeholder="Clubhouse, Tower B, Prestige Lakeside" />
       </div>
+      <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm sm:col-span-2">
+        <input type="checkbox" name="monthly" className="mt-0.5 h-4 w-4 accent-brand-600" />
+        <span>
+          <span className="font-medium">Repeats every month</span>
+          <span className="block text-slate-500">
+            For a monthly fund (society, festival or temple fund). Start each new month with the same people in one tap, and see who keeps missing
+            months.
+          </span>
+        </span>
+      </label>
       <div className="flex items-end justify-between gap-3 sm:col-span-2">
         <FormMessage state={state} />
         <SubmitButton className="btn-primary ml-auto" pendingText="Creating…">Create collection</SubmitButton>

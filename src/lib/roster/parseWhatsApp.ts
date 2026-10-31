@@ -33,6 +33,8 @@ const IGNORED_SYSTEM = [
   /^this message was deleted/i,
 ];
 
+const IOS_MEDIA_BODY = /^(<attached: [^>]+>|(image|video|audio|sticker|GIF|document|Contact card) omitted)/i;
+
 function headerBody(line: string): { body: string; ios: boolean } | null {
   const android = ANDROID_LINE.exec(line);
   if (android) return { body: android[3], ios: false };
@@ -74,11 +76,13 @@ function parseExport(lines: string[]): ParsedRoster {
     let body = header.body;
 
     // iOS prefixes system lines with "<Group name>: ‎"; Android has no sender.
+    // Media lines ("Ravi: ‎<attached: …>", "Ravi: ‎image omitted") carry the same
+    // mark but are real messages, often a payment screenshot.
     const colon = body.indexOf(": ");
     let sender: string | null = null;
     if (colon > 0) {
       const rest = body.slice(colon + 2);
-      if (header.ios && rest.startsWith("‎")) body = rest;
+      if (header.ios && rest.startsWith("‎") && !IOS_MEDIA_BODY.test(rest.replace(INVISIBLE, "").trim())) body = rest;
       else {
         sender = body.slice(0, colon);
         body = rest;

@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
+import { SubmitButton } from "@/components/forms";
 import { requireEvent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
 import { getEventStats } from "@/lib/services/stats";
+import { startNextMonth } from "../actions";
 import { AssistantPanel } from "./AssistantPanel";
 import { CloseTab } from "./CloseTab";
 import { ExpensesTab } from "./ExpensesTab";
@@ -27,9 +30,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const tab: TabId = TABS.some((t) => t.id === rawTab) ? (rawTab as TabId) : "overview";
   const event = await requireEvent(id);
   const stats = await getEventStats(id);
-  const [reviewCount, flaggedExpenses] = await Promise.all([
+  const [reviewCount, flaggedExpenses, fund, laterMonth] = await Promise.all([
     prisma.contribution.count({ where: { eventId: id, verificationStatus: { in: ["NEEDS_REVIEW", "UNVERIFIED"] } } }),
     prisma.expense.count({ where: { eventId: id, flagged: true } }),
+    event.fundId ? prisma.fund.findUnique({ where: { id: event.fundId } }) : null,
+    event.fundId && event.period ? prisma.event.findFirst({ where: { fundId: event.fundId, period: { gt: event.period } }, select: { id: true } }) : null,
   ]);
 
   const badges: Partial<Record<TabId, number>> = { roster: stats.missing, review: reviewCount, expenses: flaggedExpenses };
@@ -39,6 +44,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       <AppHeader />
       <main className="mx-auto max-w-5xl px-4 py-6">
         <div className="mb-5 animate-enter">
+          {fund && (
+            <Link href={`/funds/${fund.id}`} className="text-sm text-slate-500 hover:text-brand-700">
+              ← {fund.name} · all months
+            </Link>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl leading-tight font-extrabold sm:text-3xl">{event.name}</h1>
             {event.status === "CLOSED" && <span className="badge bg-slate-100 text-slate-600">Closed</span>}
@@ -47,6 +57,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             {shortDate(event.date)} · <span className="tabular">{inr(event.perHeadAmount)}</span> per head · pays to{" "}
             <span className="font-medium text-slate-700">{event.organizerUpiVpa}</span>
           </p>
+          {fund && !laterMonth && (
+            <form action={startNextMonth.bind(null, event.id)} className="mt-3">
+              <SubmitButton className="btn-secondary text-sm" pendingText="Copying members…">
+                Start next month
+              </SubmitButton>
+            </form>
+          )}
         </div>
         <Tabs tabs={TABS.map((t) => ({ ...t, badge: badges[t.id] ?? 0 }))} active={tab}>
           {tab === "overview" && <OverviewTab event={event} stats={stats} />}

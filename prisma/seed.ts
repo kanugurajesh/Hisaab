@@ -1,5 +1,6 @@
 // Demo data: one Diwali collection in an 80-member WhatsApp group where 52 people
-// have registered. Run with `npm run db:seed` (uses AI_MOCK or Groq for matching).
+// have registered, and a monthly society fund with six months of history.
+// Run with `npm run db:seed` (uses AI_MOCK or Groq for matching).
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { billTotal, renderBill, type BillSpec } from "../eval/lib/renderBill";
@@ -7,6 +8,7 @@ import { renderReceipt, type ReceiptSpec } from "../eval/lib/renderReceipt";
 import type { ExpenseCategory } from "../src/lib/expenses/categories";
 import type { BillExtraction } from "../src/lib/expenses/extract";
 import { evaluateBill, parseBillDate } from "../src/lib/expenses/rules";
+import { monthName } from "../src/lib/services/funds";
 import { newNudgeToken } from "../src/lib/services/roster";
 import { runMatching } from "../src/lib/services/matching";
 import { putObject } from "../src/lib/storage";
@@ -310,6 +312,109 @@ async function main() {
 
   console.log(`Seeded "${event.name}" (invite code ${event.inviteCode}): ${i} registrations, ${PEOPLE.length} group members.`);
   console.log(`Matching: ${res.matched} matched, ${res.suggested} suggested for confirmation.`);
+  await seedFund(user.id);
+}
+
+// A society fund that collects ₹500 every month and spends it at Ganesh
+// Chaturthi. One letter per month, May → Oct 2026: P paid, - not paid,
+// x not in the group yet, E not expected to pay.
+const FUND_NAME = "Sai Nagar Ganesh Fund";
+const FUND_MONTHS = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"];
+const FUND_PEOPLE: [string, string, string][] = [
+  ["Asha Rao", "+919848011001", "PPPPPP"],
+  ["Venkat Reddy", "+919848011002", "PPPPP-"],
+  ["Lakshmi Iyer", "+919848011003", "PPPPPP"],
+  ["Suresh Babu", "+919848011004", "PPP---"],
+  ["Meena Joshi", "+919848011005", "PPPPPP"],
+  ["Kiran Kumar", "+919848011006", "PP-P--"],
+  ["Anil (302)", "+919848011007", "PPPPPP"],
+  ["Anil (405)", "+919848011008", "PP----"],
+  ["Fatima Shaikh", "+919848011009", "PPPPPP"],
+  ["Ramesh Gupta", "+919848011010", "--PPPP"],
+  ["Srinivas Rao", "+919848011011", "PPPPPP"],
+  ["Divya Menon", "+919848011012", "xxPPPP"],
+  ["Rajesh Nair", "+919848011013", "xxxPP-"],
+  ["Priya Sharma", "+919848011014", "PP-PPP"],
+  ["Mohammed Irfan", "+919848011015", "PPPPPP"],
+  ["Sunita Patil", "+919848011016", "P-P-P-"],
+  ["Gopal Krishna", "+919848011017", "PPPPP-"],
+  ["Kavya Reddy", "+919848011018", "xP----"],
+  ["Ravi Kumar", "+919848011019", "EEEEEE"],
+  ["Sai Electricals", "+919848011020", "EEEEEE"],
+];
+
+async function seedFund(organizerId: string) {
+  await prisma.fund.deleteMany({ where: { organizerId, name: FUND_NAME } });
+  const fund = await prisma.fund.create({ data: { organizerId, name: FUND_NAME } });
+  const personKey = new Map<string, string>();
+  let payments = 0;
+  let september = "";
+
+  for (const [m, period] of FUND_MONTHS.entries()) {
+    const latest = m === FUND_MONTHS.length - 1;
+    const month = await prisma.event.create({
+      data: {
+        organizerId,
+        fundId: fund.id,
+        period,
+        name: monthName(FUND_NAME, period),
+        date: new Date(`${period}-10T10:00:00+05:30`),
+        dueDate: new Date(`${period}-10T23:59:00+05:30`),
+        perHeadAmount: PER_HEAD,
+        organizerName: ORGANIZER.name,
+        organizerUpiVpa: ORGANIZER.vpa,
+        inviteCode: `sainagar-${period}`,
+        status: latest ? "OPEN" : "CLOSED",
+        createdAt: new Date(`${period}-01T09:00:00+05:30`),
+      },
+    });
+    if (period === "2026-09") september = month.id;
+
+    for (const [n, [name, phone, pattern]] of FUND_PEOPLE.entries()) {
+      const mark = pattern[m];
+      if (mark === "x") continue;
+      // Paid on the invite link; confirmed long ago, so no screenshot needed here.
+      const contribution =
+        mark === "P"
+          ? await prisma.contribution.create({
+              data: {
+                eventId: month.id,
+                name,
+                phone,
+                amount: PER_HEAD,
+                verificationStatus: "APPROVED",
+                createdAt: new Date(`${period}-${String(2 + (n % 8)).padStart(2, "0")}T20:00:00+05:30`),
+              },
+            })
+          : null;
+      const row = await prisma.rosterMember.create({
+        data: {
+          eventId: month.id,
+          displayName: name,
+          phone,
+          personKey: personKey.get(name) ?? null,
+          source: "WHATSAPP_EXPORT",
+          status: mark === "E" ? "EXCLUDED" : contribution ? "MATCHED" : "PENDING",
+          contributionId: contribution?.id,
+          matchConfidence: contribution ? 1 : null,
+          matchReason: mark === "E" ? (name === ORGANIZER.name ? "Organizer" : "Not a person (business/bot)") : contribution ? "Same phone number" : null,
+          nudgeToken: newNudgeToken(),
+        },
+      });
+      if (!personKey.has(name)) personKey.set(name, row.id);
+      if (contribution) payments++;
+    }
+  }
+
+  // Collected all year, spent at Ganesh Chaturthi.
+  await prisma.expense.createMany({
+    data: [
+      { eventId: september, title: "Ganesh idol", amount: 9500, category: "Puja", vendor: "Dhoolpet idol makers", billDate: new Date("2026-09-10T00:00:00Z") },
+      { eventId: september, title: "Pandal and lights", amount: 6000, category: "Decoration", vendor: "Sai Electricals", billDate: new Date("2026-09-12T00:00:00Z") },
+      { eventId: september, title: "Prasadam for three days", amount: 4200, category: "Food", billDate: new Date("2026-09-16T00:00:00Z") },
+    ],
+  });
+  console.log(`Seeded "${FUND_NAME}": ${FUND_MONTHS.length} months, ${FUND_PEOPLE.length} members, ${payments} payments.`);
 }
 
 main()

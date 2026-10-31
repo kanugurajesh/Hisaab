@@ -21,6 +21,12 @@ describe("parseRosterInput", () => {
     expect(names(r)).toEqual(["Kiran", "Lakshmi Iyer", "Ravi Kumar"]);
   });
 
+  it("keeps iOS members whose only messages are images", () => {
+    // "Lakshmi: ‎<attached: …>" and "Kiran: ‎image omitted" carry the same mark as system lines.
+    const r = parseRosterInput(fixture("ios-media-export.txt"));
+    expect(names(r)).toEqual(["Kiran", "Lakshmi Iyer", "Ravi Kumar"]);
+  });
+
   it("parses a pasted member list with phones, admins and noise", () => {
     const r = parseRosterInput(
       ["Group info", "12 participants", "You", "Ravi Kumar Group admin", "+91 98480 12345 ~Suresh", "Sita", "Sita"].join("\n"),

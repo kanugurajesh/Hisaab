@@ -4,15 +4,24 @@ import { Empty } from "@/components/ui";
 import { requireOrganizer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
+import { monthLabel } from "@/lib/funds/months";
 import { CreateEventForm } from "./CreateEventForm";
 
 export default async function EventsPage() {
   const user = await requireOrganizer();
-  const events = await prisma.event.findMany({
+  const all = await prisma.event.findMany({
     where: { organizerId: user.id },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { contributions: true, roster: { where: { status: "PENDING" } } } } },
+    include: { fund: true, _count: { select: { contributions: true, roster: { where: { status: "PENDING" } } } } },
   });
+  // A monthly fund shows once, as its latest month, and opens the fund page.
+  const latestOfFund = new Map<string, (typeof all)[number]>();
+  for (const e of all) {
+    if (!e.fundId) continue;
+    const seen = latestOfFund.get(e.fundId);
+    if (!seen || (e.period ?? "") > (seen.period ?? "")) latestOfFund.set(e.fundId, e);
+  }
+  const events = all.filter((e) => !e.fundId || latestOfFund.get(e.fundId) === e);
 
   return (
     <>
@@ -25,18 +34,23 @@ export default async function EventsPage() {
               {events.map((e, i) => (
                 <Link
                   key={e.id}
-                  href={`/events/${e.id}`}
+                  href={e.fund ? `/funds/${e.fund.id}` : `/events/${e.id}`}
                   className="card group animate-enter transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-[0_10px_30px_-12px_rgb(29_27_87/0.25)]"
                   style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="font-display text-lg leading-snug font-semibold group-hover:text-brand-700">{e.name}</div>
-                    <span className={`badge ${e.status === "OPEN" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                      {e.status === "OPEN" ? "Collecting" : "Closed"}
-                    </span>
+                    <div className="font-display text-lg leading-snug font-semibold group-hover:text-brand-700">{e.fund?.name ?? e.name}</div>
+                    {e.fund ? (
+                      <span className="badge bg-brand-50 text-brand-700">Monthly</span>
+                    ) : (
+                      <span className={`badge ${e.status === "OPEN" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                        {e.status === "OPEN" ? "Collecting" : "Closed"}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1 text-sm text-slate-500">
-                    {shortDate(e.date)} · <span className="tabular">{inr(e.perHeadAmount)}</span> per head
+                    {e.period ? monthLabel(e.period) : shortDate(e.date)} · <span className="tabular">{inr(e.perHeadAmount)}</span>{" "}
+                    {e.fund ? "a month" : "per head"}
                   </div>
                   <div className="tabular mt-4 flex gap-4 border-t border-slate-100 pt-3 text-sm">
                     <span>

@@ -1,17 +1,19 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireEvent, requireOrganizer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { matchesName } from "@/lib/format";
 import { inviteUrl } from "@/lib/links";
 import { generateReminder, LANGUAGES, toneForAttempt, whatsappLink, type Language, type Tone } from "@/lib/reminders/generate";
 import { addExpense as addExpenseService } from "@/lib/services/expenses";
 import { runMatching } from "@/lib/services/matching";
 import { importRoster as importRosterService, newNudgeToken } from "@/lib/services/roster";
 import { groupNudgeFor, ledgerUpdateFor } from "@/lib/services/drafts";
+import { createNextMonth, monthName, newInviteCode } from "@/lib/services/funds";
+import { periodOf } from "@/lib/funds/months";
 import { deleteObject, deletePrefix } from "@/lib/storage";
 import { isValidVpa, normalizeVpa } from "@/lib/upi";
 import { InvalidImageError } from "@/lib/verify/image";
@@ -48,16 +50,33 @@ export async function createEvent(_: FormState, form: FormData): Promise<FormSta
   const parsed = eventInput.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { dueDate, organizerUpiVpa, ...rest } = parsed.data;
-  const event = await prisma.event.create({
-    data: {
-      ...rest,
-      organizerUpiVpa: normalizeVpa(organizerUpiVpa)!,
-      dueDate: dueDate || null,
-      organizerId: user.id,
-      inviteCode: randomBytes(5).toString("base64url"),
-    },
+  // A monthly fund: this is its first month, and "Start next month" continues it.
+  const monthly = form.get("monthly") === "on";
+  const period = periodOf(rest.date);
+  // One transaction, so a failed first month doesn't leave an empty fund behind.
+  const event = await prisma.$transaction(async (tx) => {
+    const fund = monthly ? await tx.fund.create({ data: { name: rest.name, organizerId: user.id } }) : null;
+    return tx.event.create({
+      data: {
+        ...rest,
+        ...(fund && { fundId: fund.id, period, name: monthName(fund.name, period) }),
+        organizerUpiVpa: normalizeVpa(organizerUpiVpa)!,
+        dueDate: dueDate || null,
+        organizerId: user.id,
+        inviteCode: newInviteCode(),
+      },
+    });
   });
   redirect(`/events/${event.id}`);
+}
+
+/** Next month of a monthly fund, with the same people, all unpaid. */
+export async function startNextMonth(eventId: string) {
+  const event = await requireEvent(eventId);
+  const month = await createNextMonth(event);
+  revalidatePath("/events");
+  if (event.fundId) revalidatePath(`/funds/${event.fundId}`);
+  redirect(`/events/${month.id}?tab=roster`);
 }
 
 export async function updateEventDetails(eventId: string, _: FormState, form: FormData): Promise<FormState> {
@@ -239,9 +258,11 @@ export async function deleteEvent(eventId: string, _: FormState, form: FormData)
   // Once anyone has paid, the collection holds a money record: close (and settle) it first.
   const paid = await prisma.contribution.count({ where: { eventId } });
   if (paid && event.status === "OPEN") return { error: "Close the collection before deleting it." };
-  if (String(form.get("confirm") ?? "").trim() !== event.name) return { error: "Type the collection name exactly to confirm." };
+  if (!matchesName(String(form.get("confirm") ?? ""), event.name)) return { error: "Type the collection name to confirm." };
   // Contributions, roster, reminders and expenses cascade; AI cost logs are kept with no event.
   await prisma.event.delete({ where: { id: eventId } });
+  // The last month of a fund takes the (now empty) fund with it.
+  if (event.fundId) await prisma.fund.deleteMany({ where: { id: event.fundId, months: { none: {} } } });
   try {
     await Promise.all([deletePrefix(`proofs/${eventId}/`), deletePrefix(`receipts/${eventId}/`)]);
   } catch (err) {

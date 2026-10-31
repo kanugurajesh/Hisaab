@@ -1,15 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { monthLabel } from "@/lib/funds/months";
+import { istIso } from "@/lib/ist";
 import { normalizePhone } from "@/lib/phone";
 import { putObject } from "@/lib/storage";
 import { normalizeUtr } from "@/lib/upi";
 import { extractProof, type ProofExtraction } from "@/lib/verify/extract";
-import { hammingDistance, prepareProofImage } from "@/lib/verify/image";
+import { isSameScreenshot } from "@/lib/verify/duplicates";
+import { prepareProofImage } from "@/lib/verify/image";
 import { evaluateProof } from "@/lib/verify/rules";
 import { runMatching } from "./matching";
-
-const NEAR_DUPLICATE_BITS = 6;
 
 export const registrationInput = z.object({
   name: z.string().trim().min(2, "Enter your name").max(80),
@@ -24,7 +25,7 @@ export type RegistrationResult =
   | { ok: false; error: string };
 
 function istNowString(): string {
-  return new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 16);
+  return istIso().slice(0, 16);
 }
 
 export async function registerContribution(
@@ -92,20 +93,22 @@ export async function registerContribution(
     }
 
     if (extracted) {
+      // In a monthly fund, a payment is only good for one month: last month's
+      // screenshot (or UTR) reused this month is the likeliest fraud there.
       const others = await prisma.contribution.findMany({
-        where: { eventId: event.id, id: { not: contribution.id } },
-        select: { name: true, utr: true, proofSha256: true, proofPhash: true },
+        where: { id: { not: contribution.id }, ...(event.fundId ? { event: { fundId: event.fundId } } : { eventId: event.id }) },
+        select: { name: true, eventId: true, utr: true, proofSha256: true, proofPhash: true, extracted: true, event: { select: { period: true } } },
       });
+      const usedBy = (o: (typeof others)[number]) =>
+        o.eventId !== event.id && o.event.period ? `${o.name} for ${monthLabel(o.event.period)}` : o.name;
       const utr = enteredUtr ?? normalizeUtr(extracted.utr);
       const utrOwner = utr ? others.find((o) => o.utr === utr) : undefined;
-      const imageOwner = others.find(
-        (o) => o.proofSha256 === image.sha256 || (o.proofPhash && hammingDistance(o.proofPhash, image.dhash) <= NEAR_DUPLICATE_BITS),
-      );
+      const imageOwner = others.find((o) => isSameScreenshot(o, image, extracted));
       const { checks, verified } = evaluateProof({
         extracted,
         declared: { amount: input.amount, utr: enteredUtr },
         event,
-        duplicates: { utrUsedBy: utrOwner?.name ?? null, imageUsedBy: imageOwner?.name ?? null },
+        duplicates: { utrUsedBy: utrOwner ? usedBy(utrOwner) : null, imageUsedBy: imageOwner ? usedBy(imageOwner) : null },
       });
       let status: "VERIFIED" | "NEEDS_REVIEW" = verified ? "VERIFIED" : "NEEDS_REVIEW";
       const data = { verificationStatus: status, extracted, checks: checks as unknown as object[] };

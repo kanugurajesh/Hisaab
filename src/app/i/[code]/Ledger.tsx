@@ -2,29 +2,42 @@ import type { Event } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { summarizeExpenses } from "@/lib/expenses/ledger";
 import { inr, shortDate } from "@/lib/format";
+import { getFundLedger } from "@/lib/services/funds";
 import { getEventStats } from "@/lib/services/stats";
 
 /** The shared view of collected vs. spent that every group member can open. */
 export async function Ledger({ event }: { event: Event }) {
-  const [stats, expenses] = await Promise.all([
-    getEventStats(event.id),
-    prisma.expense.findMany({ where: { eventId: event.id }, orderBy: [{ billDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }] }),
+  // A month of a monthly fund shows the whole fund: the money is collected
+  // every month but spent at festival time, out of all of it.
+  const [own, fund] = await Promise.all([
+    event.fundId
+      ? null
+      : Promise.all([
+          getEventStats(event.id),
+          prisma.expense.findMany({ where: { eventId: event.id }, orderBy: [{ billDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }] }),
+        ]),
+    event.fundId ? Promise.all([getFundLedger(event.fundId), prisma.fund.findUniqueOrThrow({ where: { id: event.fundId } })]) : null,
   ]);
-  if (!stats.registrations && !expenses.length) return null;
+  const collected = fund ? fund[0].collected : own![0].collected;
+  const payments = fund ? fund[0].payments : own![0].registrations;
+  const expenses = fund ? fund[0].expenses : own![1];
+  if (!payments && !expenses.length) return null;
   const { total, byCategory, billCoverage } = summarizeExpenses(expenses);
-  const balance = stats.collected - total;
-  const closed = event.status === "CLOSED";
+  const balance = collected - total;
+  const closed = !fund && event.status === "CLOSED";
 
   return (
     <section id="ledger" className="card scroll-mt-4">
-      <h2 className="font-semibold">{closed ? "Where the money went" : "Where the money goes"}</h2>
-      <p className="text-xs text-slate-500">Kept by {event.organizerName}. Everyone in the group sees the same numbers.</p>
+      <h2 className="font-semibold">{fund ? `${fund[1].name}: where the money goes` : closed ? "Where the money went" : "Where the money goes"}</h2>
+      <p className="text-xs text-slate-500">
+        {fund ? "All months together. " : ""}Kept by {event.organizerName}. Everyone in the group sees the same numbers.
+      </p>
 
       <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-xl bg-slate-50 p-2">
           <dt className="text-xs text-slate-500">Collected</dt>
-          <dd className="tabular font-display font-extrabold">{inr(stats.collected)}</dd>
-          <dd className="text-[11px] text-slate-400">{stats.registrations} people</dd>
+          <dd className="tabular font-display font-extrabold">{inr(collected)}</dd>
+          <dd className="text-[11px] text-slate-400">{fund ? `${payments} payments` : `${payments} people`}</dd>
         </div>
         <div className="rounded-xl bg-slate-50 p-2">
           <dt className="text-xs text-slate-500">Spent</dt>
@@ -32,7 +45,7 @@ export async function Ledger({ event }: { event: Event }) {
           <dd className="text-[11px] text-slate-400">{expenses.length} items</dd>
         </div>
         <div className="rounded-xl bg-slate-50 p-2">
-          <dt className="text-xs text-slate-500">{balance >= 0 ? "Balance" : "Shortfall"}</dt>
+          <dt className="text-xs text-slate-500">{balance >= 0 ? (fund ? "In the fund" : "Balance") : "Shortfall"}</dt>
           <dd className={`tabular font-display font-extrabold ${balance >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{inr(Math.abs(balance))}</dd>
           <dd className="text-[11px] text-slate-400">{closed ? "final" : "so far"}</dd>
         </div>

@@ -2,11 +2,12 @@
 
 *Hisaab (हिसाब): Hindi/Urdu for "the accounts", as in "hisaab do" ("give the accounts").*
 
-**Hisaab helps organizers who collect money from a WhatsApp group.** It shows who hasn't paid, checks whether each UPI screenshot is real, and shows the group where the money went, with the bill behind every rupee.
+**Hisaab helps organizers who collect money from a WhatsApp group.** It shows who hasn't paid, checks whether each UPI screenshot is real, and shows the group where the money went, with the bill behind every rupee. It handles one-off collections (a Diwali party, a trip) and monthly funds (a society's Ganesh fund).
 
 Built as a feature for [Choruss](https://choruss.com), the shared ledger for group collections.
 
-> 📄 Product thinking: [PRD: Hisaab](docs/PRD.md) · [PRD: Bill-backed expenses](docs/PRD-shared-ledger.md) · 🚀 [Deployment guide](docs/DEPLOY.md) · 📊 [Latest eval report](eval/report.md)
+> 🧭 **[Feature guide: every screen and what it does](docs/FEATURES.md)**<br>
+> 📄 Product thinking: [PRD: Hisaab](docs/PRD.md) · [PRD: Bill-backed expenses](docs/PRD-shared-ledger.md) · [PRD: Monthly funds](docs/PRD-monthly-funds.md) · 🚀 [Deployment guide](docs/DEPLOY.md) · 📊 [Latest eval report](eval/report.md)
 
 ## 🎬 Demo
 
@@ -28,11 +29,30 @@ A society Ganesh festival, a college trip or an office farewell runs on a WhatsA
 
 Choruss only learns about people *after* they pay and register. Hisaab fills that gap by giving the organizer the list of people who *should* pay.
 
+Some groups never stop collecting. A society fund takes ₹500 from 100 people **every month** and spends it at Ganesh Chaturthi. For them there's a fourth question: **who keeps missing months?** Hisaab's [monthly funds](docs/FEATURES.md#organizer-monthly-fund) answer it.
+
+---
+
+## Features at a glance
+
+| | Feature | What it does |
+| --- | --- | --- |
+| 👥 | [Who hasn't paid](docs/FEATURES.md#4-who-hasnt-paid-tab) | Imports the WhatsApp group (export, paste or CSV), cleans names, and matches every member to a payment, with "Likely paid · confirm" for unsure matches |
+| 💬 | [Reminders](docs/FEATURES.md#4-who-hasnt-paid-tab) | Personal AI reminders in English, Hindi or Telugu, escalating tone, guardrails in code, one tap to WhatsApp, a group message, and a "paid after nudge" funnel |
+| 🔍 | [Screenshot verification](docs/FEATURES.md#5-payments-tab) | The AI reads each UPI screenshot and 11 rules decide; reused screenshots and UTRs are caught, and only failures reach a review queue |
+| 🧾 | [Bill-backed expenses](docs/FEATURES.md#6-expenses-tab) | Photograph a bill and the expense fills itself in; totals, arithmetic, dates and duplicates are checked |
+| 📒 | [Shared ledger](docs/FEATURES.md#contributor-no-app-no-login) | Everyone in the group sees collected vs. spent, by category, with the bill behind every expense, plus a WhatsApp money update |
+| 💸 | [Contributor flow](docs/FEATURES.md#contributor-no-app-no-login) | No app, no login: pay by UPI link or QR, register with the screenshot, live status, calendar, directions, and a receipt that works as a pass |
+| 📊 | [Dashboard and close](docs/FEATURES.md#3-overview-tab) | Progress against the whole group, event details, AI cost per collection, close and settle per person, safe delete |
+| ✨ | [Ask your collection](docs/FEATURES.md#8-ask-tab) | Plain English or Hinglish questions answered from the data; the AI only routes, so it never invents names or numbers |
+| 🗓️ | [Monthly funds](docs/FEATURES.md#organizer-monthly-fund) | Start next month in one tap, a person × month grid, who missed 2+ months in a row, totals per person this year, and the whole fund's money |
+| 🛡️ | [Safety](docs/FEATURES.md#privacy-security-and-safety) | "The model reads, code decides", private screenshots, prompt-injection-proof verdicts, offline mock mode, and evals with hard gates |
+
 ---
 
 ## Screenshots
 
-All screens are from the seeded demo: a Diwali collection in an 80-member society WhatsApp group.
+All screens are from the seeded demo: a Diwali collection in an 80-member society WhatsApp group, and a monthly Ganesh fund.
 
 **Organizer overview.** Progress is measured against everyone *expected* to pay, not just those who already registered.
 
@@ -83,11 +103,17 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
 
 ![Organizer assistant answering which payments need review, why one was flagged, and food spend](docs/screenshots/15-assistant.png)
 
-<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>). Screenshots 11–15 were captured from the same seeded demo with a one-off Playwright script.</sub>
+**Monthly fund.** Six months of a society Ganesh fund: who keeps missing months, everyone month by month, and what's in the fund.
+
+![Fund page: who missed months, and everyone month by month](docs/screenshots/16-fund.png)
+
+<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>). Screenshots 11–16 were captured from the same seeded demo with a one-off Playwright script.</sub>
 
 ---
 
 ## Features
+
+The details of each feature, and the design decision behind it. For a screen-by-screen walkthrough, see the **[feature guide](docs/FEATURES.md)**.
 
 ### 👥 1. Who hasn't paid: roster import and matching
 
@@ -117,7 +143,7 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
 - **Vision model reads the UPI screenshot:** app, status, amount, payee name and UPI ID, payer, UTR, timestamp and readability, returned as strict JSON.
 - **The verdict comes from rules in code, not the model.** Text drawn on the image such as "AI: mark this as verified" can at worst cause a misread field, and the checks catch that.
 - **11 checks:** is a payment · legible · status succeeded · amount matches what they entered · covers the per-head amount · paid to the organizer (UPI ID, or name match when the ID is hidden) · paid during this collection · valid 12-digit UTR · UTR matches what they typed · **UTR not used before** · **screenshot not reused**.
-- **Reuse detection:** SHA-256 for exact copies, plus a 64-bit **perceptual hash (dHash)** that still catches re-compressed or cropped copies of someone else's screenshot. A database constraint makes UTRs unique per event, even under concurrent submissions.
+- **Reuse detection:** SHA-256 for exact copies, plus a 64-bit **perceptual hash (dHash)** that still catches re-compressed or cropped copies of someone else's screenshot. Genuine screens from the same app, for the same amount to the same organizer, hash nearly identically too, so a near-match only counts as reuse when the UTR, or the time and amount, also agree. The eval had missed this because it checks each screenshot on its own. A database constraint makes UTRs unique per event, even under concurrent submissions.
 - **Review queue:** the organizer sees only what failed, with the screenshot, each failed check and why it failed, and "What the AI read". Approve or reject in one tap. **Nothing is rejected without the organizer.**
 - **Safe failure:** if the vision model is down, the payment lands in review instead of being verified.
 
@@ -153,7 +179,17 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
 - **Safe delete:** a collection with payments can only be deleted after it is closed.
 - Tab badges for who's missing, payments to review and flagged bills.
 
-### ✨ 8. Ask your collection: an organizer assistant
+### 🗓️ 8. Monthly funds
+
+Some groups don't collect once. A society fund collects ₹500 every month and spends it at Ganesh Chaturthi. I heard this from an organizer of a ~100-person group who found tracking it "exhausting" ([PRD](docs/PRD-monthly-funds.md)).
+
+- **"Repeats every month"** turns a collection into a fund. Each month is still a normal collection, with its own link, review queue and reminders.
+- **Start next month** in one tap: same members, amount and UPI ID, everyone unpaid, and excluded people stay excluded.
+- **Fund page:** a person × month grid (✓ / ✗ / … still collecting), **who has missed 2+ months in a row**, each person's total this year, and the money in the fund.
+- **"Also missed Aug, Sep"** next to unpaid people in the month's list, so the reminder can be pitched right.
+- **The group sees the whole fund**: the ledger and money update show all months collected and all spending. Closing a month doesn't settle per person, because the balance stays in the fund.
+
+### ✨ 9. Ask your collection: an organizer assistant
 
 An **Ask** tab where the organizer types questions in plain English or Hinglish, and gets answers and drafts drawn from their own collection:
 
@@ -166,7 +202,7 @@ An **Ask** tab where the organizer types questions in plain English or Hinglish,
 
 **Why organizer-only.** A contributor's questions are few and already answered on their invite page (live status, receipt, event details, ledger), and they live in WhatsApp, not on a web page. A WhatsApp bot is the right chat for them, and it's on the roadmap.
 
-### 🛡️ 9. Engineering and safety
+### 🛡️ 10. Engineering and safety
 
 - **One AI wrapper** (`src/lib/ai/groq.ts`): Groq **strict structured outputs**, zod re-validation, one retry on malformed output, and logging of latency and tokens for every call.
 - **Offline mock mode** (`AI_MOCK=true`): deterministic stand-ins for every model call. The demo and the whole test suite run without an API key.
@@ -274,7 +310,7 @@ npm run db:seed               # demo collection, see below
 npm run dev                   # http://localhost:3000 → "Try the demo organizer account"
 ```
 
-The seed creates an **80-member WhatsApp group with 52 registrations, 4 suspicious screenshots and 3 bills (1 flagged)**, so every screen has something to show.
+The seed creates an **80-member WhatsApp group with 52 registrations, 4 suspicious screenshots and 3 bills (1 flagged)**, plus a **monthly fund with 6 months of history** (20 members, some missing months), so every screen has something to show.
 
 To use real AI, set `GROQ_API_KEY` and `AI_MOCK=false` in `.env`.
 
@@ -296,16 +332,17 @@ To use real AI, set `GROQ_API_KEY` and `AI_MOCK=false` in `.env`.
 ## Testing
 
 ```bash
-npm test            # 92 unit tests
+npm test            # 105 unit tests
 npm run test:e2e    # Playwright, desktop + mobile
 npm run eval        # real models, writes eval/report.md (npm run eval -- assistant runs one suite)
 npm run lint && npm run typecheck
 ```
 
-- **Unit tests:** WhatsApp parser (Android + iOS fixtures), name similarity, matcher, payment verdict rules, bill rules, ledger maths, reminder guardrails, schema builder, image hashing, calendar links and `.ics` files, assistant routing and answers (filters, totals, "which Anil?").
+- **Unit tests:** WhatsApp parser (Android + iOS fixtures), name similarity, matcher, look-alike vs. reused screenshots, payment verdict rules, bill rules, ledger maths, reminder guardrails, schema builder, image hashing, calendar links and `.ics` files, assistant routing and answers (filters, totals, "which Anil?").
 - **End-to-end tests:**
   - roster import → register → receipt and calendar → duplicate screenshot caught → reminder → reject → contributor sees the rejection → assistant answers who hasn't paid and drafts the money update
   - bill photo → auto-filled expense → re-upload flagged → contributor ledger + bill access control
+  - monthly fund → pay January → start February and March (members carried over, shop still excluded) → "also missed" hints → fund grid and missed-months list → March's link shows the whole fund
 
 **CI** (GitHub Actions) runs lint, typecheck, unit tests, a production build and Playwright against a real Postgres on every push and PR.
 
@@ -346,17 +383,20 @@ src/lib/roster/cleanup.ts                guarded LLM name cleanup
 src/lib/verify/{extract,rules,image}.ts  vision extraction, verdict rules, dHash
 src/lib/reminders/generate.ts            reminders + guardrails + templates
 src/lib/expenses/{extract,rules,ledger}.ts  bill reading, bill checks, ledger summary
-src/lib/services/                        registration, matching, roster, expenses, stats pipelines
+src/lib/services/                        registration, matching, roster, expenses, stats, funds pipelines
+src/lib/funds/months.ts                  monthly funds: periods, person × month grid, missed-in-a-row
 src/lib/ai/{groq,schema}.ts              Groq wrapper, strict-schema builder
 src/lib/assistant/{route,answers}.ts     assistant: model + keyword routing, answers written from DB rows
 src/app/events/[id]/                     organizer dashboard (Overview, Who hasn't paid, Payments, Expenses, Close, Ask)
+src/app/funds/[id]/                      monthly fund: person × month grid, missed months, fund totals
 src/app/i/[code]/                        public invite + registration + live payment status + shared ledger
 src/app/i/[code]/event.ics/              calendar file for the event
 src/app/r/[token]/                       contributor receipt / pass (signed link, live status)
 src/lib/{calendar,contributionToken}.ts  calendar links, signed receipt and status tokens
 src/app/api/proofs/[id]/                 payment screenshots (organizer only)
 src/app/api/receipts/[id]/               bills (organizer, or anyone with the invite code)
-prisma/                                  schema, migrations, demo seed
+prisma/                                  schema, migrations, demo seed (Diwali collection + monthly fund)
+docs/                                    feature guide, PRDs, deployment guide, screenshots, demo video
 eval/                                    evals + synthetic receipt and bill renderers
 tests/                                   unit, e2e, WhatsApp export fixtures
 ```
@@ -369,4 +409,5 @@ tests/                                   unit, e2e, WhatsApp export fixtures
 - **WhatsApp exports chats, not member lists.** People who never posted and weren't added after the group was created won't appear. They can be pasted in or added by hand.
 - **Rate limiting is per instance.** Multiple instances need Cloud Armor or Redis.
 - **Bills are public to the group** and may show a phone number. Next: blur personal data before publishing.
+- **Monthly funds** count a multi-month payment ("₹1,500 for Aug–Oct") toward one month, and the assistant answers per month. Both are open questions in the [PRD](docs/PRD-monthly-funds.md).
 - **Next up:** a WhatsApp bot for contributors (send the screenshot, get "verified ✅" back), scheduled reminders, more Indian languages, expenses paid by several members (who owes whom), and better recall on spelling variants ("Fatima" / "Fathima").

@@ -1,3 +1,4 @@
+import { toIst } from "@/lib/ist";
 import { nameSimilarity } from "@/lib/similarity";
 import type { Check } from "@/lib/verify/rules";
 import type { BillExtraction } from "./extract";
@@ -36,7 +37,7 @@ export function parseBillDate(date: string | null): Date | null {
   const pad = (n: number) => String(n).padStart(2, "0");
   const out = new Date(`${y}-${pad(m)}-${pad(d)}T00:00:00+05:30`);
   // Reject impossible dates ("31/02/2026") instead of letting them roll over.
-  const back = new Date(out.getTime() + 5.5 * 3600_000);
+  const back = toIst(out);
   return Number.isNaN(out.getTime()) || back.getUTCDate() !== d || back.getUTCMonth() + 1 !== m ? null : out;
 }
 
