@@ -3,6 +3,7 @@ import { s } from "@/lib/ai/schema";
 import { LANGUAGES, type Language, type Tone } from "./constants";
 
 export { LANGUAGES, TONES, type Language, type Tone } from "./constants";
+export { whatsappLink } from "./whatsapp";
 
 export interface ReminderInput {
   name: string;
@@ -101,7 +102,3 @@ export function groupNudge(opts: { eventName: string; missing: string[]; link: s
   return `🙏 ${opts.eventName}: we're almost there! Still waiting on ₹${opts.amount.toLocaleString("en-IN")} from:\n${names}${more}\n\nPay and register here: ${opts.link}\nIf you've already paid, please register at the link so we can tick you off. Thanks! — ${opts.organizerName}`;
 }
 
-export function whatsappLink(phone: string | null, text: string): string {
-  const digits = phone?.replace(/\D/g, "");
-  return `https://wa.me/${digits ?? ""}?text=${encodeURIComponent(text)}`;
-}

@@ -6,7 +6,7 @@ import { Progress, Stat, VerificationBadge } from "@/components/ui";
 import { prisma } from "@/lib/db";
 import { inr, relativeTime } from "@/lib/format";
 import { getEventStats, getReminderFunnel } from "@/lib/services/stats";
-import { inviteUrl } from "../actions";
+import { inviteUrl } from "@/lib/links";
 import { EventDetailsForm } from "./EventDetailsForm";
 
 type Stats = Awaited<ReturnType<typeof getEventStats>>;

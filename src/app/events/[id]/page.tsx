@@ -4,6 +4,7 @@ import { requireEvent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { inr, shortDate } from "@/lib/format";
 import { getEventStats } from "@/lib/services/stats";
+import { AssistantPanel } from "./AssistantPanel";
 import { CloseTab } from "./CloseTab";
 import { ExpensesTab } from "./ExpensesTab";
 import { OverviewTab } from "./OverviewTab";
@@ -16,6 +17,7 @@ const TABS = [
   { id: "review", label: "Payments" },
   { id: "expenses", label: "Expenses" },
   { id: "close", label: "Close" },
+  { id: "ask", label: "Ask ✨" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -65,6 +67,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         {tab === "review" && <ReviewTab event={event} />}
         {tab === "expenses" && <ExpensesTab event={event} />}
         {tab === "close" && <CloseTab event={event} stats={stats} />}
+        {tab === "ask" && <AssistantPanel eventId={event.id} perHead={event.perHeadAmount} />}
       </main>
     </>
   );

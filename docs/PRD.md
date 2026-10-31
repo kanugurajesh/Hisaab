@@ -49,10 +49,16 @@ Below 90% confidence a match is only *suggested*, and the organizer confirms it 
 - **Deterministic rules decide the verdict:** amount, receiver, time window, UTR format and reuse, and perceptual-hash image reuse.
 - Failures go to a review queue that shows *why*. Only the organizer can reject.
 
+**5. Ask your collection.** An organizer-only assistant on the dashboard answers ad-hoc questions ("who hasn't paid?", "why was Esha flagged?", "spend on food?") and drafts reminders and the money update.
+- The model only routes the question to one of 9 lookups; code runs it and writes the answer, so numbers and names are always exact.
+- Drafts only: approve, reject and send stay with the organizer.
+- Measured: 100% routing accuracy on 32 eval questions (keyword baseline 75%).
+
 ## Key decisions
 - **The LLM proposes; code decides.** The model never sets a verdict or invents a match: ids are restricted to the candidates, assignment is one-to-one, and thresholds live in code. This also defeats prompt injection written into screenshots.
 - **No AI where a template is better.** The group nudge message is a template, because names must be exact.
 - **Privacy.** Message bodies never leave the parser. The LLM sees only the last 4 digits of phone numbers. Proof images are private and served only to the organizer.
+- **Chat only where it helps.** Organizers get the assistant because their questions span tabs and change daily. Contributors don't: their few questions are answered on the invite page, and their chat lives in WhatsApp, so a WhatsApp bot is the roadmap item rather than a web chat.
 - **Degrade gracefully.** If the model is down, matching falls back to fuzzy *suggestions* only, reminders fall back to templates, and proofs go to the review queue.
 
 ## Risks
@@ -66,3 +72,4 @@ Below 90% confidence a match is only *suggested*, and the organizer confirms it 
 1. Ship behind a flag to 10 active organizers and measure collection rate against their previous events.
 2. Interview organizers about suggestion accuracy and reminder tone.
 3. Add more languages (Tamil, Kannada, Marathi) and scheduled reminders.
+4. Track which assistant questions organizers ask, and promote the frequent ones to dashboard cards.

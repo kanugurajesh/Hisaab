@@ -1,11 +1,13 @@
 // Offline evaluation of the two AI steps against the real Groq models.
 //   npm run eval            -> runs both suites, writes eval/report.md
-//   npm run eval -- names   -> only the name-matching suite (also: proofs, bills)
+//   npm run eval -- names   -> only the name-matching suite (also: proofs, bills, assistant);
+//                              its section replaces the old one in eval/report.md
 // Requires GROQ_API_KEY and AI_MOCK=false (mock mode would only test the mocks).
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { isMockMode, modelFor } from "../src/lib/ai/groq";
+import { routeByKeywords, routeWithModel, type Route } from "../src/lib/assistant/route";
 import { extractBill, type BillExtraction } from "../src/lib/expenses/extract";
 import { evaluateBill, parseBillDate } from "../src/lib/expenses/rules";
 import { normalizePhone } from "../src/lib/phone";
@@ -15,6 +17,7 @@ import { normalizeVpa } from "../src/lib/upi";
 import { extractProof, type ProofExtraction } from "../src/lib/verify/extract";
 import { prepareProofImage } from "../src/lib/verify/image";
 import { evaluateProof, parseProofTimestamp } from "../src/lib/verify/rules";
+import { ASSISTANT_CASES, type AssistantCase } from "./data/assistant";
 import { NAME_PAIRS } from "./data/names";
 import { billTotal, renderBill, type BillSpec } from "./lib/renderBill";
 import { renderReceipt, type ReceiptSpec } from "./lib/renderReceipt";
@@ -324,6 +327,56 @@ async function billSuite() {
   out();
 }
 
+async function assistantSuite() {
+  out("## Assistant routing");
+  out(`${ASSISTANT_CASES.length} organizer questions (English, Hinglish, typos, follow-ups, one injection). A case passes when the tool and every expected argument match; the keyword router (mock mode and fallback) is the baseline.`);
+  out();
+  const same = (a: unknown, b: unknown) => (typeof a === "string" && typeof b === "string" ? nameSimilarity(a, b) >= 0.9 || a.toLowerCase() === b.toLowerCase() : a === b);
+  const passes = (r: Route, c: AssistantCase) => r.tool === c.tool && Object.entries(c.args ?? {}).every(([k, v]) => same(r[k as keyof Route], v));
+  const show = (r: Route) => [r.tool, ...Object.entries(r).filter(([k, v]) => k !== "tool" && v !== null).map(([k, v]) => `${k}=${v}`)].join(" ");
+  let model = 0, keywords = 0;
+  const rows: string[] = [];
+  const latencies: number[] = [];
+  for (const c of ASSISTANT_CASES) {
+    const kw = routeByKeywords(c.q);
+    if (passes(kw, c)) keywords++;
+    const t = Date.now();
+    let got: Route;
+    try {
+      got = await routeWithModel(c.q, c.earlier ?? [], EVAL_EVENT_ID);
+      latencies.push(Date.now() - t);
+    } catch (e) {
+      rows.push(`| ${c.q} | ${c.tool} | error: ${(e as Error).message.slice(0, 60)} | |`);
+      continue;
+    }
+    const ok = passes(got, c);
+    if (ok) model++;
+    rows.push(`| ${c.earlier ? `(after “${c.earlier.at(-1)}”) ` : ""}${c.q} | ${[c.tool, ...Object.entries(c.args ?? {}).map(([k, v]) => `${k}=${v}`)].join(" ")} | ${show(got)} ${ok ? "✅" : "❌"} | ${passes(kw, c) ? "✅" : "❌"} |`);
+  }
+  out(`| Metric | Value |`);
+  out(`|---|---|`);
+  out(`| **Model routing accuracy** | ${pct(model, ASSISTANT_CASES.length)} (${model}/${ASSISTANT_CASES.length}) |`);
+  out(`| Keyword baseline | ${pct(keywords, ASSISTANT_CASES.length)} (${keywords}/${ASSISTANT_CASES.length}) |`);
+  if (latencies.length) out(`| Median latency | ${latencies.sort((a, b) => a - b)[Math.floor(latencies.length / 2)]} ms |`);
+  out();
+  out(`| Question | Expected | Model | Keywords |`);
+  out(`|---|---|---|---|`);
+  rows.forEach((r) => out(r));
+  out();
+}
+
+/** A single-suite run replaces just its own "## " section in the existing report. */
+function mergeReport(file: string, fresh: string): string {
+  if (!existsSync(file)) return fresh;
+  const sections = (text: string) => text.split(/^(?=## )/m);
+  const [freshHead, ...freshSections] = sections(fresh);
+  const [, ...oldSections] = sections(readFileSync(file, "utf8"));
+  const title = (sec: string) => sec.split("\n")[0];
+  const merged = oldSections.map((old) => freshSections.find((f) => title(f) === title(old)) ?? old);
+  freshSections.filter((f) => !oldSections.some((old) => title(old) === title(f))).forEach((f) => merged.push(f));
+  return freshHead + merged.join("");
+}
+
 async function main() {
   if (isMockMode()) {
     console.error("Evals need the real model: set GROQ_API_KEY and AI_MOCK=false.");
@@ -337,7 +390,10 @@ async function main() {
   if (!only || only === "names") await nameSuite();
   if (!only || only === "proofs") await proofSuite();
   if (!only || only === "bills") await billSuite();
-  writeFileSync(path.join(__dirname, "report.md"), lines.join("\n") + "\n");
+  if (!only || only === "assistant") await assistantSuite();
+  const file = path.join(__dirname, "report.md");
+  const report = lines.join("\n") + "\n";
+  writeFileSync(file, only ? mergeReport(file, report) : report);
   console.log(`\nWrote eval/report.md`);
 }
 

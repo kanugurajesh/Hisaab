@@ -88,6 +88,17 @@ test("organizer finds who hasn't paid, contributor proof is verified, duplicate 
   await page.getByRole("link", { name: /hasn't paid/ }).click();
   await expect(page.getByRole("heading", { name: "Not paid yet · 2" })).toBeVisible();
 
+  // The assistant answers from the same data (keyword routing under AI_MOCK) and only drafts messages.
+  await page.getByRole("link", { name: /^Ask/ }).click();
+  await page.getByRole("button", { name: "Who hasn't paid yet?" }).click();
+  const answer = page.getByTestId("assistant-answer").last();
+  await expect(answer).toContainText("2 people haven't paid yet");
+  await expect(answer).toContainText("Anil Varma");
+  await page.getByLabel("Ask a question").fill("write the money update for the group");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await expect(page.getByTestId("assistant-answer").last().getByLabel("Draft message")).toHaveValue(/Collected: ₹500 from 1 person/);
+  await shot("assistant");
+
   // People have paid, so deleting is only offered once the collection is closed.
   await page.getByRole("link", { name: "Close", exact: true }).click();
   await expect(page.getByText(/close the collection before deleting it/)).toBeVisible();

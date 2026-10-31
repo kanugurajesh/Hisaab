@@ -8,10 +8,9 @@ import { formatTime } from "@/lib/calendar";
 import { readContributionId, receiptNumber, receiptPath } from "@/lib/contributionToken";
 import { prisma } from "@/lib/db";
 import { inr, longDate, shortDate } from "@/lib/format";
+import { appUrl } from "@/lib/links";
 
 export const metadata: Metadata = { title: "Receipt · Hisaab", robots: { index: false } };
-
-const appUrl = () => process.env.APP_URL ?? "http://localhost:3000";
 
 // The contributor's receipt. Its QR opens this same page, so at the door anyone
 // can scan it and see the payment's status right now, not a screenshot of it.

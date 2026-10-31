@@ -6,18 +6,16 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireEvent, requireOrganizer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ledgerUpdate } from "@/lib/expenses/ledger";
-import { generateReminder, groupNudge, LANGUAGES, toneForAttempt, whatsappLink, type Language, type Tone } from "@/lib/reminders/generate";
+import { inviteUrl } from "@/lib/links";
+import { generateReminder, LANGUAGES, toneForAttempt, whatsappLink, type Language, type Tone } from "@/lib/reminders/generate";
 import { addExpense as addExpenseService } from "@/lib/services/expenses";
 import { runMatching } from "@/lib/services/matching";
 import { importRoster as importRosterService, newNudgeToken } from "@/lib/services/roster";
-import { getEventStats } from "@/lib/services/stats";
+import { groupNudgeFor, ledgerUpdateFor } from "@/lib/services/drafts";
 import { deleteObject, deletePrefix } from "@/lib/storage";
 import { isValidVpa, normalizeVpa } from "@/lib/upi";
 import { InvalidImageError } from "@/lib/verify/image";
 
-const appUrl = () => process.env.APP_URL ?? "http://localhost:3000";
-export const inviteUrl = async (code: string, token?: string) => `${appUrl()}/i/${code}${token ? `?r=${token}` : ""}`;
 
 export type FormState = { error?: string; message?: string } | undefined;
 
@@ -168,15 +166,7 @@ export async function markReminderSent(reminderId: string, message: string) {
 }
 
 export async function draftGroupNudge(eventId: string) {
-  const event = await requireEvent(eventId);
-  const missing = await prisma.rosterMember.findMany({ where: { eventId, status: "PENDING" }, orderBy: { displayName: "asc" } });
-  return groupNudge({
-    eventName: event.name,
-    missing: missing.map((m) => m.displayName),
-    link: await inviteUrl(event.inviteCode),
-    amount: event.perHeadAmount,
-    organizerName: event.organizerName,
-  });
+  return groupNudgeFor(await requireEvent(eventId));
 }
 
 export async function reviewContribution(contributionId: string, approve: boolean) {
@@ -235,20 +225,7 @@ export async function deleteExpense(expenseId: string) {
 }
 
 export async function draftLedgerUpdate(eventId: string) {
-  const event = await requireEvent(eventId);
-  const [expenses, stats] = await Promise.all([
-    prisma.expense.findMany({ where: { eventId }, select: { amount: true, category: true, receiptKey: true } }),
-    getEventStats(eventId),
-  ]);
-  return ledgerUpdate({
-    eventName: event.name,
-    collected: stats.collected,
-    contributors: stats.registrations,
-    expenses,
-    link: `${await inviteUrl(event.inviteCode)}#ledger`,
-    organizerName: event.organizerName,
-    closed: event.status === "CLOSED",
-  });
+  return ledgerUpdateFor(await requireEvent(eventId));
 }
 
 export async function setEventStatus(eventId: string, status: "OPEN" | "CLOSED") {
