@@ -4,8 +4,9 @@ import QRCode from "qrcode";
 import { CopyButton } from "@/components/forms";
 import { Logo } from "@/components/ui";
 import { prisma } from "@/lib/db";
+import { formatTime } from "@/lib/calendar";
 import { inr, shortDate } from "@/lib/format";
-import { paymentCookieName, readContributionId } from "@/lib/paymentCookie";
+import { paymentCookieName, readContributionId } from "@/lib/contributionToken";
 import { buildUpiLink } from "@/lib/upi";
 import { Ledger } from "./Ledger";
 import { PaymentStatus } from "./PaymentStatus";
@@ -24,7 +25,8 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
   // A personal reminder link lets us greet them and match with certainty.
   const member = r ? await prisma.rosterMember.findFirst({ where: { eventId: event.id, nudgeToken: r } }) : null;
   const upi = buildUpiLink({ vpa: event.organizerUpiVpa, payeeName: event.organizerName, amount: event.perHeadAmount, note: event.name });
-  const qr = await QRCode.toDataURL(upi, { margin: 1, width: 360 });
+  // The status card replaces the payment QR, and polls while it waits: skip the work.
+  const qr = paid ? "" : await QRCode.toDataURL(upi, { margin: 1, width: 360 });
   const greetName = member && !member.displayName.startsWith("+") ? member.displayName.replace(/\s*\(.*\)$/, "") : undefined;
 
   return (
@@ -34,7 +36,8 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
         <p className="text-sm text-slate-500">{greetName ? `Hi ${greetName}! ` : ""}You&apos;re invited to contribute to</p>
         <h1 className="text-xl font-semibold">{event.name}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {shortDate(event.date)} · organized by {event.organizerName}
+          {shortDate(event.date)}
+          {formatTime(event.startTime) && `, ${formatTime(event.startTime)}`} · organized by {event.organizerName}
           {event.dueDate && ` · pay by ${shortDate(event.dueDate)}`}
         </p>
       </section>
@@ -42,7 +45,7 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
       {event.status === "CLOSED" ? (
         <section className="card text-center text-slate-600">This collection is closed. Contact {event.organizerName} if you still want to contribute.</section>
       ) : paid ? (
-        <PaymentStatus key={paid.id} contribution={paid} organizerName={event.organizerName} />
+        <PaymentStatus key={paid.id} contribution={paid} event={event} />
       ) : (
         <>
           <section className="card">

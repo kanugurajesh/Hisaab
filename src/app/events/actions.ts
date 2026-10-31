@@ -21,6 +21,20 @@ export const inviteUrl = async (code: string, token?: string) => `${appUrl()}/i/
 
 export type FormState = { error?: string; message?: string } | undefined;
 
+// What contributors see once they've paid. All optional; blank clears.
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((v) => v || null);
+const detailsShape = {
+  startTime: z.union([z.literal(""), z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Pick a start time")]).optional().transform((v) => v || null),
+  venue: optionalText(200),
+  notes: optionalText(500),
+};
+
 const eventInput = z.object({
   name: z.string().trim().min(3, "Give the event a name").max(80),
   date: z.coerce.date({ message: "Pick the event date" }),
@@ -28,6 +42,7 @@ const eventInput = z.object({
   organizerName: z.string().trim().min(2, "Enter the name shown on your UPI account").max(80),
   organizerUpiVpa: z.string().trim().refine(isValidVpa, "Enter a valid UPI ID, e.g. name@okicici"),
   dueDate: z.union([z.literal(""), z.coerce.date()]).optional(),
+  ...detailsShape,
 });
 
 export async function createEvent(_: FormState, form: FormData): Promise<FormState> {
@@ -45,6 +60,15 @@ export async function createEvent(_: FormState, form: FormData): Promise<FormSta
     },
   });
   redirect(`/events/${event.id}`);
+}
+
+export async function updateEventDetails(eventId: string, _: FormState, form: FormData): Promise<FormState> {
+  await requireEvent(eventId);
+  const parsed = z.object(detailsShape).safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  await prisma.event.update({ where: { id: eventId }, data: parsed.data });
+  revalidatePath(`/events/${eventId}`);
+  return { message: "Saved. Contributors see this once their payment is confirmed." };
 }
 
 export async function importRoster(eventId: string, _: FormState, form: FormData): Promise<FormState> {

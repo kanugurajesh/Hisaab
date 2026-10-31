@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-// Remembers which contribution this browser registered, so the invite page can
-// show its live status (approved, rejected…) instead of a blank form. Signed so
-// nobody can look up someone else's payment by guessing an id.
+// A signed contribution id. The invite page keeps it in a cookie to show the
+// payment's live status instead of a blank form, and the receipt link carries
+// it. Signed so nobody can look up someone else's payment by guessing an id.
 
 export const paymentCookieName = (inviteCode: string) => `hisaab_paid_${inviteCode}`;
 
@@ -19,3 +19,9 @@ export function readContributionId(value: string | undefined): string | null {
   const given = Buffer.from(sig);
   return given.length === expected.length && timingSafeEqual(given, expected) ? id : null;
 }
+
+/** The contributor's receipt, which doubles as a pass: scanning its QR opens this page and shows the live status. */
+export const receiptPath = (contributionId: string) => `/r/${signContributionId(contributionId)}`;
+
+/** Short, readable reference printed on the receipt. */
+export const receiptNumber = (contributionId: string) => `HSB-${contributionId.slice(-8).toUpperCase()}`;

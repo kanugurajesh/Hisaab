@@ -32,6 +32,10 @@ model Event {
   organizerName   String
   organizerUpiVpa String
   dueDate         DateTime?
+  // Shown to contributors once they've paid, and used for "Add to calendar".
+  startTime       String? // "HH:MM", IST
+  venue           String?
+  notes           String?
   inviteCode      String         @unique
   status          EventStatus    @default(OPEN)
   createdAt       DateTime       @default(now())

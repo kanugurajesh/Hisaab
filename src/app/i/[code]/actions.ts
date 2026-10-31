@@ -2,7 +2,7 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { paymentCookieName, signContributionId } from "@/lib/paymentCookie";
+import { paymentCookieName, signContributionId } from "@/lib/contributionToken";
 import { rateLimit } from "@/lib/rateLimit";
 import { registerContribution, type RegistrationResult } from "@/lib/services/registration";
 import { InvalidImageError } from "@/lib/verify/image";

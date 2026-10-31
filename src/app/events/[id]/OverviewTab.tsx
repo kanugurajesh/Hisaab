@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { inr, relativeTime } from "@/lib/format";
 import { getEventStats, getReminderFunnel } from "@/lib/services/stats";
 import { inviteUrl } from "../actions";
+import { EventDetailsForm } from "./EventDetailsForm";
 
 type Stats = Awaited<ReturnType<typeof getEventStats>>;
 
@@ -99,6 +100,14 @@ export async function OverviewTab({ event, stats }: { event: Event; stats: Stats
           </p>
         </section>
       </div>
+
+      <section className="card">
+        <h2 className="font-semibold">Event details</h2>
+        <p className="mb-3 mt-1 text-sm text-slate-500">
+          Once their payment is confirmed, people get these with a receipt they can show at the door, plus Add to calendar and directions.
+        </p>
+        <EventDetailsForm event={event} />
+      </section>
 
       <section className="card">
         <h2 className="mb-3 font-semibold">Latest registrations</h2>

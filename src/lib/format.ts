@@ -6,6 +6,10 @@ export function shortDate(d: Date | string): string {
   return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+export function longDate(d: Date | string): string {
+  return new Date(d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+
 export function relativeTime(d: Date | string, now = new Date()): string {
   const mins = Math.round((now.getTime() - new Date(d).getTime()) / 60000);
   if (mins < 1) return "just now";

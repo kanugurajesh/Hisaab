@@ -34,6 +34,18 @@ export function CreateEventForm({ defaultName }: { defaultName: string }) {
         </label>
         <input id="dueDate" name="dueDate" type="date" className="input" />
       </div>
+      <div>
+        <label className="label" htmlFor="startTime">
+          Starts at <span className="font-normal text-slate-400">(optional)</span>
+        </label>
+        <input id="startTime" name="startTime" type="time" className="input" />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="label" htmlFor="venue">
+          Venue <span className="font-normal text-slate-400">(optional, shown to people once they&apos;ve paid)</span>
+        </label>
+        <input id="venue" name="venue" className="input" placeholder="Clubhouse, Tower B, Prestige Lakeside" />
+      </div>
       <div className="flex items-end justify-between gap-3 sm:col-span-2">
         <FormMessage state={state} />
         <SubmitButton pendingText="Creating…">Create collection</SubmitButton>

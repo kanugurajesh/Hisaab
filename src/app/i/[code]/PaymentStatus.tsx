@@ -1,6 +1,9 @@
-import type { Contribution } from "@prisma/client";
+import type { Contribution, Event } from "@prisma/client";
 import Link from "next/link";
-import { inr, shortDate } from "@/lib/format";
+import { AutoRefresh } from "@/components/AutoRefresh";
+import { formatTime, googleCalendarUrl, mapsUrl } from "@/lib/calendar";
+import { receiptPath } from "@/lib/contributionToken";
+import { inr, longDate, shortDate } from "@/lib/format";
 import type { Check, CheckId } from "@/lib/verify/rules";
 
 // Written for the contributor. The organizer's labels ("Amount matches what they
@@ -26,14 +29,17 @@ function reasons(c: Contribution): string[] {
   return [c.proofKey ? "we couldn't read the screenshot" : "no screenshot was attached"];
 }
 
-export function PaymentStatus({ contribution: c, organizerName }: { contribution: Contribution; organizerName: string }) {
+export function PaymentStatus({ contribution: c, event }: { contribution: Contribution; event: Event }) {
   const s = c.verificationStatus;
   const confirmed = s === "VERIFIED" || s === "APPROVED";
   const rejected = s === "REJECTED";
-  const why = !confirmed && !rejected ? reasons(c) : [];
+  const waiting = !confirmed && !rejected;
+  const why = waiting ? reasons(c) : [];
+  const { organizerName } = event;
 
   return (
-    <section className="card space-y-3">
+    <section className="card space-y-4">
+      {waiting && <AutoRefresh />}
       <div className={`rounded-2xl p-5 text-center ${confirmed ? "bg-emerald-50" : rejected ? "bg-rose-50" : "bg-amber-50"}`} role="status">
         <div className="text-3xl">{confirmed ? "✅" : rejected ? "❌" : "🕐"}</div>
         <h2 className="mt-2 font-semibold">
@@ -50,19 +56,73 @@ export function PaymentStatus({ contribution: c, organizerName }: { contribution
         </p>
         {why.length > 0 && (
           <p className="mt-2 text-sm text-amber-800">
-            We couldn&apos;t verify it automatically: {why.join("; ")}. No action needed unless you entered something wrong. This page updates once the
-            organizer confirms.
+            We couldn&apos;t verify it automatically: {why.join("; ")}. No action needed unless you entered something wrong.
           </p>
+        )}
+        {waiting && (
+          <p className="mt-2 text-xs text-slate-500">This page updates by itself. Your receipt and the event details appear here once it&apos;s confirmed.</p>
         )}
         {rejected && (
           <p className="mt-2 text-sm text-rose-800">If you did pay, message {organizerName} with your UPI transaction ID, or register the payment again.</p>
         )}
+        {confirmed && (
+          <Link href={receiptPath(c.id)} className="btn-primary mt-4 w-full py-2.5">
+            View receipt
+          </Link>
+        )}
       </div>
+
+      {confirmed && <EventDetails event={event} />}
+
       <p className="text-center text-sm">
         <Link href="?new=1" className="text-brand-700 underline">
           {rejected ? "Register the payment again" : "Paying for someone else too? Register another payment"}
         </Link>
       </p>
     </section>
+  );
+}
+
+/** What a paid contributor needs next: when, where, and anything the organizer wants them to know. */
+function EventDetails({ event }: { event: Event }) {
+  const time = formatTime(event.startTime);
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
+      <h3 className="font-semibold">You&apos;re all set for {event.name}</h3>
+      <dl className="space-y-2 text-sm">
+        <div className="flex gap-2">
+          <dt aria-label="When">📅</dt>
+          <dd>
+            {longDate(event.date)}
+            {time && `, ${time}`}
+          </dd>
+        </div>
+        {event.venue && (
+          <div className="flex gap-2">
+            <dt aria-label="Where">📍</dt>
+            <dd>{event.venue}</dd>
+          </div>
+        )}
+        {event.notes && (
+          <div className="flex gap-2">
+            <dt aria-label={`Note from ${event.organizerName}`}>📝</dt>
+            <dd className="whitespace-pre-line">{event.notes}</dd>
+          </div>
+        )}
+      </dl>
+      <div className="flex flex-wrap gap-2">
+        <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" className="btn-secondary text-xs">
+          Add to Google Calendar
+        </a>
+        <a href={`/i/${event.inviteCode}/event.ics`} className="btn-secondary text-xs">
+          Apple / Outlook calendar
+        </a>
+        {event.venue && (
+          <a href={mapsUrl(event.venue)} target="_blank" rel="noreferrer" className="btn-secondary text-xs">
+            Directions
+          </a>
+        )}
+      </div>
+    </div>
   );
 }

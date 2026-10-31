@@ -47,6 +47,11 @@ test("organizer finds who hasn't paid, contributor proof is verified, duplicate 
   await register(page, invite, "Sita Reddy", proof);
   await expect(page.getByText("Payment verified. Thank you!")).toBeVisible();
   await shot("contributor-verified");
+  // Once paid: the event details and a receipt that doubles as a pass.
+  await expect(page.getByRole("link", { name: "Add to Google Calendar" })).toBeVisible();
+  await page.getByRole("link", { name: "View receipt" }).click();
+  await expect(page.getByText("✅ Paid")).toBeVisible();
+  await expect(page.getByText(/HSB-[A-Z0-9]{8}/)).toBeVisible();
 
   // Same screenshot reused by someone else: must not auto-verify.
   await register(page, invite, "Kiran", proof);

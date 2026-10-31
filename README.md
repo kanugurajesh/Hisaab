@@ -119,12 +119,15 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
 
 - **Pay in one tap:** a UPI deep link (works with GPay, PhonePe, Paytm, BHIM) prefilled with the amount and note, plus a **UPI QR code** for desktop users and a copyable UPI ID.
 - **Register with a screenshot** and get an instant result: *Verified*, or a list of what looked off.
+- **Live status on the invite link:** the page remembers their payment (signed cookie) and updates by itself when the organizer approves or rejects it.
+- **After confirmation:** the event time, venue and organizer's note, **Add to calendar** (Google, or `.ics` for Apple/Outlook), **Directions**, and a **receipt that doubles as a pass**. Its QR opens the receipt page itself, so scanning it at the door shows the payment's status right now, not a screenshot of it.
 - **Mobile-first.** The whole flow is tested on a phone viewport.
 - Hisaab never holds money: people pay the organizer directly.
 
 ### 📊 7. Organizer dashboard
 
 - **Overview:** collection progress against the expected roster, verified vs. to review, balance, the invite link with a QR code, and the latest registrations.
+- **Event details for contributors:** start time, venue and a note ("Dinner from 8 pm, bring diyas"), editable any time. Contributors see them once their payment is confirmed.
 - **AI cost and latency per event:** number of calls, average latency and estimated spend in dollars, from the `AiCall` log.
 - **Close and settle:** collected, spent and surplus or shortfall, the **equal share per person**, and each person's balance ("gets back ₹120" / "owes ₹80"). Closing stops new registrations, while the ledger stays visible.
 - **Safe delete:** a collection with payments can only be deleted after it is closed.
@@ -249,15 +252,15 @@ To use real AI, set `GROQ_API_KEY` and `AI_MOCK=false` in `.env`.
 ## Testing
 
 ```bash
-npm test            # 65 unit tests
+npm test            # 72 unit tests
 npm run test:e2e    # Playwright, desktop + mobile
 npm run eval        # real models, writes eval/report.md
 npm run lint && npm run typecheck
 ```
 
-- **Unit tests:** WhatsApp parser (Android + iOS fixtures), name similarity, matcher, payment verdict rules, bill rules, ledger maths, reminder guardrails, schema builder, image hashing.
+- **Unit tests:** WhatsApp parser (Android + iOS fixtures), name similarity, matcher, payment verdict rules, bill rules, ledger maths, reminder guardrails, schema builder, image hashing, calendar links and `.ics` files.
 - **End-to-end tests:**
-  - roster import → register → duplicate screenshot caught → reminder → reject
+  - roster import → register → receipt and calendar → duplicate screenshot caught → reminder → reject → contributor sees the rejection
   - bill photo → auto-filled expense → re-upload flagged → contributor ledger + bill access control
 
 **CI** (GitHub Actions) runs lint, typecheck, unit tests, a production build and Playwright against a real Postgres on every push and PR.
@@ -302,7 +305,10 @@ src/lib/expenses/{extract,rules,ledger}.ts  bill reading, bill checks, ledger su
 src/lib/services/                        registration, matching, roster, expenses, stats pipelines
 src/lib/ai/{groq,schema}.ts              Groq wrapper, strict-schema builder
 src/app/events/[id]/                     organizer dashboard (Overview, Who hasn't paid, Payments, Expenses, Close)
-src/app/i/[code]/                        public invite + registration + shared ledger
+src/app/i/[code]/                        public invite + registration + live payment status + shared ledger
+src/app/i/[code]/event.ics/              calendar file for the event
+src/app/r/[token]/                       contributor receipt / pass (signed link, live status)
+src/lib/{calendar,contributionToken}.ts  calendar links, signed receipt and status tokens
 src/app/api/proofs/[id]/                 payment screenshots (organizer only)
 src/app/api/receipts/[id]/               bills (organizer, or anyone with the invite code)
 prisma/                                  schema, migrations, demo seed
