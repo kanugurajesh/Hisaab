@@ -121,7 +121,7 @@ function istLabel(d: Date): { label: string; iso: string } {
 }
 
 async function main() {
-  const user = await prisma.user.upsert({ where: { email: "demo@choruss.local" }, update: {}, create: { email: "demo@choruss.local", name: "Demo Organizer" } });
+  const user = await prisma.user.upsert({ where: { email: "demo@hisaab.local" }, update: {}, create: { email: "demo@hisaab.local", name: "Demo Organizer" } });
   await prisma.event.deleteMany({ where: { organizerId: user.id, inviteCode: "diwali26" } });
   const now = new Date();
   const event = await prisma.event.create({

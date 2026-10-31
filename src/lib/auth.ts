@@ -17,7 +17,7 @@ if (demoLoginEnabled) {
       id: "demo",
       name: "Demo organizer",
       credentials: {},
-      authorize: async () => ({ id: "demo", email: "demo@choruss.local", name: "Demo Organizer" }),
+      authorize: async () => ({ id: "demo", email: "demo@hisaab.local", name: "Demo Organizer" }),
     }),
   );
 }
