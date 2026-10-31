@@ -8,6 +8,12 @@ Built as a feature for [Choruss](https://choruss.com), the shared ledger for gro
 
 > 📄 Product thinking: [PRD: Hisaab](docs/PRD.md) · [PRD: Bill-backed expenses](docs/PRD-shared-ledger.md) · 🚀 [Deployment guide](docs/DEPLOY.md) · 📊 [Latest eval report](eval/report.md)
 
+## 🎬 Demo
+
+**[▶ Watch the 2½-minute walkthrough (MP4)](docs/demo/hisaab-demo.mp4)**: the organizer finds who hasn't paid and sends a Telugu reminder, a contributor's payment is verified, a reused screenshot is caught, and the group sees where the money went.
+
+[![A contributor registers and is verified; a second person reusing the same screenshot is caught](docs/demo/hisaab-teaser.gif)](docs/demo/hisaab-demo.mp4)
+
 ---
 
 ## The problem
@@ -21,6 +27,43 @@ A society Ganesh festival, a college trip or an office farewell runs on a WhatsA
 | **Where did the money go?** | "Trust me" and a blurry photo dump | Photograph a bill and the expense fills itself in. The group sees collected vs. spent, with every bill |
 
 Choruss only learns about people *after* they pay and register. Hisaab fills that gap by giving the organizer the list of people who *should* pay.
+
+---
+
+## Screenshots
+
+All screens are from the seeded demo: a Diwali collection in an 80-member society WhatsApp group.
+
+**Organizer overview.** Progress is measured against everyone *expected* to pay, not just those who already registered.
+
+![Organizer overview](docs/screenshots/01-overview.png)
+
+| Who hasn't paid | AI-written reminder (Telugu) |
+| --- | --- |
+| ![Not paid yet list](docs/screenshots/02-who-hasnt-paid.png) | ![Reminder in Telugu with personal link](docs/screenshots/04-reminder.png) |
+
+**Uncertain matches wait for the organizer.** "Lakshmi Iyer" in the group vs. "Laxmi Iyer" who registered:
+
+![Likely paid, confirm](docs/screenshots/03-likely-paid.png)
+
+| Payment review queue | Flagged bill |
+| --- | --- |
+| ![Review queue with failed checks](docs/screenshots/05-review-queue.png) | ![Bill total doesn't match the logged amount](docs/screenshots/07-bill-flagged.png) |
+| Only payments that fail a check reach the organizer, with the screenshot and the reason. | The bill says ₹12,000 but ₹8,000 was logged, so it's flagged for the organizer only. |
+
+| Expenses | Close and settle |
+| --- | --- |
+| ![Expenses tab](docs/screenshots/06-expenses.png) | ![Per-person balances](docs/screenshots/08-close-and-settle.png) |
+
+**Contributor's phone.** No app or login: pay by UPI, register with the screenshot, and see where the money goes.
+
+<p>
+  <img src="docs/screenshots/09-contributor-invite.png" alt="Invite page with UPI pay button and QR" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/10-contributor-ledger.png" alt="Shared ledger with bills" width="300">
+</p>
+
+<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>).</sub>
 
 ---
 
@@ -219,6 +262,16 @@ npm run lint && npm run typecheck
   - bill photo → auto-filled expense → re-upload flagged → contributor ledger + bill access control
 
 **CI** (GitHub Actions) runs lint, typecheck, unit tests, a production build and Playwright against a real Postgres on every push and PR.
+
+### Recording the demo
+
+The README screenshots and the demo video are scripted with Playwright against the running app (`AI_MOCK=true`, `DEMO_LOGIN=true`), with captions and a visible cursor. Requires `ffmpeg` on `PATH` for the video.
+
+```bash
+npm run db:seed && npm run capture -- shots   # docs/screenshots/*.png
+npm run db:seed && npm run capture -- video   # docs/demo/hisaab-demo.mp4
+npm run db:seed                               # the video adds two registrations; reset afterwards
+```
 
 ---
 

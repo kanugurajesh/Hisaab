@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
-    "eval": "tsx --env-file-if-exists=.env eval/run.ts"
+    "eval": "tsx --env-file-if-exists=.env eval/run.ts",
+    "capture": "tsx --env-file-if-exists=.env scripts/capture.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "8.4.0",

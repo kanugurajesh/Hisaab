@@ -1,7 +1,7 @@
 // Captures README screenshots and a narrated demo video of the running app.
 //
-//   npm run db:seed && npx tsx scripts/capture.ts shots   -> docs/screenshots/*.png
-//   npm run db:seed && npx tsx scripts/capture.ts video   -> docs/demo/hisaab-demo.mp4
+//   npm run db:seed && npm run capture -- shots   -> docs/screenshots/*.png
+//   npm run db:seed && npm run capture -- video   -> docs/demo/hisaab-demo.mp4
 //
 // Needs the app on APP_URL (default http://localhost:3000) with AI_MOCK=true and
 // DEMO_LOGIN=true, freshly seeded. The video run registers two payments and rejects
@@ -156,55 +156,67 @@ async function shots() {
 
 // Fake cursor + caption bar, injected into every page. Playwright videos don't show
 // the real mouse, so the click helper animates this cursor before each click.
-const OVERLAY = String.raw`(() => {
+function overlay() {
   if (window !== window.top) return;
-  const css = \`
-    #__cur{position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;width:26px;height:26px;transition:transform .05s linear}
-    #__cur svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
-    #__ring{position:fixed;z-index:2147483646;pointer-events:none;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;
-      border:3px solid #f59e0b;opacity:0;transform:scale(.4)}
-    #__ring.on{animation:__r .5s ease-out}
-    @keyframes __r{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(1.4)}}
-    #__cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483645;pointer-events:none;
-      max-width:min(980px,92vw);padding:14px 22px;border-radius:16px;background:rgba(15,23,42,.92);color:#fff;
-      font:500 19px/1.4 ui-sans-serif,system-ui,'Segoe UI',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25);
-      transition:opacity .3s}
-    #__cap b{display:block;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#fbbf24;margin-bottom:3px}
-    #__cap.hide{opacity:0}\`;
-  function install() {
-    if (!document.body || document.getElementById('__cur')) return;
-    const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
-    const cur = document.createElement('div'); cur.id = '__cur';
+  const css = [
+    "#__cur{position:fixed;left:0;top:0;z-index:2147483647;pointer-events:none;width:26px;height:26px}",
+    "#__cur svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}",
+    "#__ring{position:fixed;z-index:2147483646;pointer-events:none;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid #f59e0b;opacity:0}",
+    "#__ring.on{animation:__r .5s ease-out}",
+    "@keyframes __r{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(1.4)}}",
+    "#__cap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483645;pointer-events:none;max-width:min(980px,92vw);padding:14px 22px;border-radius:16px;background:rgba(15,23,42,.92);color:#fff;font:500 19px/1.4 ui-sans-serif,system-ui,'Segoe UI',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25);transition:opacity .3s}",
+    "#__cap b{display:block;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#fbbf24;margin-bottom:3px}",
+    "#__cap.hide{opacity:0}",
+  ].join("\n");
+  const w = window as unknown as Window;
+  w.__move = (x, y) => {
+    const cur = document.getElementById("__cur");
+    if (cur) cur.style.transform = `translate(${x - 4}px,${y - 2}px)`;
+    sessionStorage.setItem("__pos", JSON.stringify([x, y]));
+  };
+  w.__click = (x, y) => {
+    const r = document.getElementById("__ring");
+    if (!r) return;
+    r.style.left = `${x}px`;
+    r.style.top = `${y}px`;
+    r.classList.remove("on");
+    void r.offsetWidth;
+    r.classList.add("on");
+  };
+  w.__caption = (title, text) => {
+    sessionStorage.setItem("__capt", JSON.stringify(text ? [title, text] : null));
+    const cap = document.getElementById("__cap");
+    if (!cap) return;
+    if (!text) {
+      cap.className = "hide";
+      return;
+    }
+    cap.innerHTML = (title ? `<b>${title}</b>` : "") + text;
+    cap.className = "";
+  };
+  const install = () => {
+    if (!document.body || document.getElementById("__cur")) return;
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.appendChild(style);
+    const cur = document.createElement("div");
+    cur.id = "__cur";
     cur.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24"><path d="M4 2l15 11.5-6.6.9 3.9 7.4-2.9 1.5-3.9-7.5L4 20z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-    const ring = document.createElement('div'); ring.id = '__ring';
-    const cap = document.createElement('div'); cap.id = '__cap'; cap.className = 'hide';
+    const ring = document.createElement("div");
+    ring.id = "__ring";
+    const cap = document.createElement("div");
+    cap.id = "__cap";
+    cap.className = "hide";
     document.body.append(cur, ring, cap);
-    const pos = JSON.parse(sessionStorage.getItem('__pos') || '[640,400]');
-    window.__move(pos[0], pos[1]);
-    const c = JSON.parse(sessionStorage.getItem('__capt') || 'null');
-    window.__caption(c && c[0], c && c[1]);
-  }
-  window.__move = (x, y) => {
-    const cur = document.getElementById('__cur');
-    if (cur) cur.style.transform = 'translate(' + (x - 4) + 'px,' + (y - 2) + 'px)';
-    sessionStorage.setItem('__pos', JSON.stringify([x, y]));
-  };
-  window.__click = (x, y) => {
-    const r = document.getElementById('__ring'); if (!r) return;
-    r.style.left = x + 'px'; r.style.top = y + 'px';
-    r.classList.remove('on'); void r.offsetWidth; r.classList.add('on');
-  };
-  window.__caption = (title, text) => {
-    sessionStorage.setItem('__capt', JSON.stringify(text ? [title, text] : null));
-    const cap = document.getElementById('__cap'); if (!cap) return;
-    if (!text) { cap.className = 'hide'; return; }
-    cap.innerHTML = (title ? '<b>' + title + '</b>' : '') + text;
-    cap.className = '';
+    const [x, y] = JSON.parse(sessionStorage.getItem("__pos") || "[640,400]");
+    w.__move(x, y);
+    const c = JSON.parse(sessionStorage.getItem("__capt") || "null");
+    w.__caption(c && c[0], c && c[1]);
   };
   // Next.js may re-render the body; keep the overlay alive.
   setInterval(install, 300);
-  document.addEventListener('DOMContentLoaded', install);
-})();`;
+  document.addEventListener("DOMContentLoaded", install);
+}
 
 declare global {
   interface Window {
@@ -316,12 +328,21 @@ async function video() {
     extraHTTPHeaders: { "x-forwarded-for": `10.0.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}` },
   });
   await ctx.addInitScript(HIDE_DEV_BADGE);
-  await ctx.addInitScript(OVERLAY);
+  // The __name shim covers helpers that tsx/esbuild may inject into serialized functions.
+  await ctx.addInitScript({ content: `var __name = (f) => f; (${overlay.toString()})();` });
   const page = await ctx.newPage();
   const d = new Director(page);
+  // Cards and the phone frame are served from the app's origin as fresh documents.
+  // (setContent on an app page would keep the old Next.js runtime alive underneath.)
+  let cardHtml = "";
+  await page.route(`${BASE}/__demo`, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: cardHtml }));
+  const show = async (html: string) => {
+    cardHtml = html;
+    await page.goto(`${BASE}/__demo`);
+  };
 
   // --- Title
-  await page.setContent(
+  await show(
     card(
       "Hisaab",
       "A feature for Choruss · group collections",
@@ -340,9 +361,9 @@ async function video() {
   await d.caption("The organizer", "Ravi is collecting ₹500 a head for Diwali from his 80-member Tower B WhatsApp group.", 2500);
   await d.click(page.getByRole("button", { name: /demo organizer/i }));
   await page.waitForURL("**/events");
-  await d.caption("The organizer", "Each collection lives here. Let's open the Diwali one.", 1500);
-  await d.click(page.getByRole("link", { name: EVENT }), 1200);
+  await page.goto(BASE + (await page.getByRole("link", { name: EVENT }).getAttribute("href")));
   await page.getByRole("heading", { name: EVENT }).waitFor();
+  const eventUrl = page.url().split("?")[0];
 
   // --- Overview
   await d.caption("Overview", "Progress against the people <i>expected</i> to pay, not just the ones who already did. Verified vs. to review, balance, invite link.", 4500);
@@ -375,7 +396,7 @@ async function video() {
 
   // --- Contributor (phone frame)
   await d.caption(null, null);
-  await page.setContent(PHONE_PAGE(INVITE));
+  await show(PHONE_PAGE(INVITE));
   const app: FrameLocator = page.frameLocator("#app");
   await app.getByLabel("Your name").waitFor();
   await d.caption("3 · Is this payment real?", "Neha got the reminder. She pays by UPI (one-tap deep link or QR) and uploads her screenshot.", 2500);
@@ -387,20 +408,23 @@ async function video() {
   await d.moveTo(app.getByLabel("Payment screenshot"), 600);
   await d.caption("3 · Is this payment real?", "A vision model reads amount, payee, UTR and time. 11 checks in code decide the verdict, not the model.", 1200);
   await d.click(app.getByRole("button", { name: /register me/i }), 300);
-  await app.getByText("Payment verified. Thank you!").waitFor({ timeout: 30_000 });
-  await scrollFrame("main");
+  const verified = app.getByText("Payment verified. Thank you!");
+  await verified.waitFor({ timeout: 30_000 });
+  await verified.evaluate((el) => el.scrollIntoView({ behavior: "smooth", block: "center" }));
+  await d.caption("3 · Is this payment real?", "All 11 checks passed: Neha is ticked off the “not paid” list automatically.");
   await sleep(3500);
 
   await d.caption("3 · Is this payment real?", "Now Omkar tries to reuse Neha's screenshot…", 1200);
-  await page.setContent(PHONE_PAGE(INVITE));
+  await show(PHONE_PAGE(INVITE));
   await app.getByLabel("Your name").waitFor();
   await scrollFrame("form");
   await sleep(1000);
   await d.type(app.getByLabel("Your name"), "Omkar Kulkarni");
   await app.getByLabel("Payment screenshot").setInputFiles({ name: "gpay.png", mimeType: "image/png", buffer: await proof("NEHA SAXENA") });
   await d.click(app.getByRole("button", { name: /register me/i }), 300);
-  await app.getByText(/organizer will confirm/).waitFor({ timeout: 30_000 });
-  await scrollFrame("main");
+  const caught = app.getByText(/organizer will confirm/);
+  await caught.waitFor({ timeout: 30_000 });
+  await caught.evaluate((el) => el.scrollIntoView({ behavior: "smooth", block: "center" }));
   await d.caption("3 · Is this payment real?", "Caught: same UTR and same image (SHA-256 + perceptual hash, so crops and re-compressions are caught too). Not verified; sent to the organizer.", 5500);
 
   await d.caption("4 · Where did the money go?", "On the same invite link, everyone sees collected vs. spent, by category, with the bill behind every expense.", 800);
@@ -409,7 +433,8 @@ async function video() {
 
   // --- Back to the organizer: review queue
   await d.caption(null, null);
-  await loginAndOpenEvent(page);
+  await page.goto(eventUrl);
+  await page.getByRole("heading", { name: EVENT }).waitFor();
   await d.caption("Review queue", "The organizer only sees the payments that failed a check, with the screenshot, what the AI read, and why.", 800);
   await d.click(tab(page, /Payments/), 1200);
   await page.getByRole("heading", { name: /Review queue/ }).waitFor();
@@ -450,7 +475,7 @@ async function video() {
   await d.caption(null, null);
 
   // --- End
-  await page.setContent(
+  await show(
     card(
       "The model reads, code decides.",
       "Hisaab · built for Choruss",
