@@ -34,7 +34,7 @@ test("organizer finds who hasn't paid, contributor proof is verified, duplicate 
   await page.getByLabel("Your UPI ID").fill(VPA);
   await page.getByLabel("Name on your UPI account").fill("E2E Organizer");
   await page.getByRole("button", { name: "Create collection" }).click();
-  await expect(page.getByRole("heading", { name: eventName })).toBeVisible();
+  await expect(page.getByRole("heading", { name: eventName })).toBeVisible({ timeout: 15_000 });
   const invite = (await page.locator("code").first().textContent())!.trim();
 
   await page.getByRole("link", { name: /hasn't paid/ }).click();

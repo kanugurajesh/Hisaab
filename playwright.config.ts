@@ -5,7 +5,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
-  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
+  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", reducedMotion: "reduce" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
