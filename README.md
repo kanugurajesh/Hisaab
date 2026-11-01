@@ -6,6 +6,7 @@
 
 Built as a feature for [Choruss](https://choruss.com), the shared ledger for group collections.
 
+> 📑 **[Project proposal for Choruss (PDF)](docs/Hisaab-Proposal-Choruss.pdf)**: what Hisaab is, why it extends Choruss, and how it was built and tested<br>
 > 🧭 **[Feature guide: every screen and what it does](docs/FEATURES.md)**<br>
 > 📄 Product thinking: [PRD: Hisaab](docs/PRD.md) · [PRD: Bill-backed expenses](docs/PRD-shared-ledger.md) · [PRD: Monthly funds](docs/PRD-monthly-funds.md) · 🚀 [Deployment guide](docs/DEPLOY.md) · 📊 [Latest eval report](eval/report.md)
 
@@ -14,6 +15,8 @@ Built as a feature for [Choruss](https://choruss.com), the shared ledger for gro
 **[▶ Watch the 2½-minute walkthrough (MP4)](docs/demo/hisaab-demo.mp4)**: the organizer finds who hasn't paid and sends a Telugu reminder, a contributor's payment is verified, a reused screenshot is caught, and the group sees where the money went.
 
 [![A contributor registers and is verified; a second person reusing the same screenshot is caught](docs/demo/hisaab-teaser.gif)](docs/demo/hisaab-demo.mp4)
+
+**[▶ Full feature walkthrough, about 8½ minutes (MP4)](docs/demo/hisaab-walkthrough.mp4)**: every feature, recorded with the real AI models and captioned. It covers a new collection end to end, the 80-member Diwali collection, and the monthly fund. Waits on the AI are sped up and labelled. [Chapters](docs/demo/hisaab-walkthrough-chapters.txt).
 
 ---
 
@@ -107,7 +110,7 @@ All screens are from the seeded demo: a Diwali collection in an 80-member societ
 
 ![Fund page: who missed months, and everyone month by month](docs/screenshots/16-fund.png)
 
-<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>). Screenshots 11–16 were captured from the same seeded demo with a one-off Playwright script.</sub>
+<sub>Screenshots and the demo video are generated from the running app by <a href="scripts/capture.ts"><code>scripts/capture.ts</code></a> (see <a href="#recording-the-demo">Recording the demo</a>). All screenshots, organizer and contributor, come from the same seeded demo.</sub>
 
 ---
 
@@ -184,10 +187,11 @@ The details of each feature, and the design decision behind it. For a screen-by-
 Some groups don't collect once. A society fund collects ₹500 every month and spends it at Ganesh Chaturthi. I heard this from an organizer of a ~100-person group who found tracking it "exhausting" ([PRD](docs/PRD-monthly-funds.md)).
 
 - **"Repeats every month"** turns a collection into a fund. Each month is still a normal collection, with its own link, review queue and reminders.
-- **Start next month** in one tap: same members, amount and UPI ID, everyone unpaid, and excluded people stay excluded.
+- **Start next month** in one tap: same members, amount, UPI ID and details, everyone unpaid, and excluded people stay excluded. Pressing it twice gives the same month, and a month can only be opened once the one before it has begun, so future months can't pile up. Dates count from the fund's first month, so a fund started on the 31st is back on the 31st after February.
 - **Fund page:** a person × month grid (✓ / ✗ / … still collecting), **who has missed 2+ months in a row**, each person's total this year, and the money in the fund.
 - **"Also missed Aug, Sep"** next to unpaid people in the month's list, so the reminder can be pitched right.
-- **The group sees the whole fund**: the ledger and money update show all months collected and all spending. Closing a month doesn't settle per person, because the balance stays in the fund.
+- **The group sees the whole fund**: the ledger and money update show all months collected and all spending. A month's overview and the assistant report the fund's balance too, not a per-month "shortfall". Closing a month doesn't settle per person, because the balance stays in the fund.
+- **A month holding payments or bills can't be deleted**, because that money is part of the fund's accounts.
 
 ### ✨ 9. Ask your collection: an organizer assistant
 
@@ -243,11 +247,11 @@ The design rule: **the model reads and writes, and code decides.** Every AI outp
 
 | Step | AI does | Code guarantees |
 | --- | --- | --- |
-| Roster cleanup | Normalises names, flags shops/bots/organizer, merges duplicates | Renames that drift too far are ignored; different phone numbers are never merged; any failure → raw list |
+| Roster cleanup | Normalises names, flags shops/bots/organizer, merges duplicates | Renames that drift too far are ignored; number-only members keep their number (the model only saw its last digits); different phone numbers are never merged; any failure → raw list |
 | Matching | Judges "Seenu" ≈ "Srinivas Rao", "Md." ≈ "Mohammed" | Only candidate ids accepted; one-to-one assignment; auto-match only ≥ 0.9; phone/token matches skip the LLM |
 | Proof reading | Reads fields off the screenshot (strict JSON schema) | **Verdict is computed by rules**, so injected text can't flip it; duplicate UTR/image checked against the DB |
-| Bill reading | Reads shop, items, tax, total, date; suggests a category | Typed values win; **flags are computed by rules**; flags are organizer-only, the bill itself is public |
-| Reminders | Writes a warm, language-appropriate nudge | Must contain the exact amount and link, no other URLs, length cap → else regenerate → else template |
+| Bill reading | Reads shop, items, tax, total, date; suggests a category | Typed values win; **flags are computed by rules**; a long "summary" (copied bill text) falls back to the shop name; flags are organizer-only, the bill itself is public |
+| Reminders | Writes a warm, language-appropriate nudge | Due date is pre-written in the target language so the model copies it, not translates it; must contain the exact amount and link, no other URLs, length cap → else regenerate → else template |
 | Group message / money update | Nothing (template on purpose) | Names and amounts are always exact |
 | Organizer assistant | Picks one lookup and its filters from the question | Code runs the query and writes every answer; actions are drafts only; contributor text never reaches the prompt; ambiguous names → "which one?"; keyword fallback |
 
@@ -332,7 +336,7 @@ To use real AI, set `GROQ_API_KEY` and `AI_MOCK=false` in `.env`.
 ## Testing
 
 ```bash
-npm test            # 105 unit tests
+npm test            # 111 unit tests
 npm run test:e2e    # Playwright, desktop + mobile
 npm run eval        # real models, writes eval/report.md (npm run eval -- assistant runs one suite)
 npm run lint && npm run typecheck
@@ -355,6 +359,15 @@ npm run db:seed && npm run capture -- shots   # docs/screenshots/*.png
 npm run db:seed && npm run capture -- video   # docs/demo/hisaab-demo.mp4
 npm run db:seed                               # the video adds two registrations; reset afterwards
 ```
+
+The full walkthrough is recorded the same way, but **with the real models** (whatever `.env` configures), so it shows what the AI actually does:
+
+```bash
+AI_MOCK=true npm run db:seed && npx tsx --env-file=.env scripts/walkthrough-prep.ts   # tidy the demo account
+npx tsx --env-file=.env scripts/walkthrough.ts                                         # docs/demo/hisaab-walkthrough.mp4
+```
+
+`PARTS=1,2,3` picks which parts to record (1: a new collection end to end, 2: the Diwali collection, 3: the monthly fund).
 
 ---
 
@@ -396,7 +409,8 @@ src/lib/{calendar,contributionToken}.ts  calendar links, signed receipt and stat
 src/app/api/proofs/[id]/                 payment screenshots (organizer only)
 src/app/api/receipts/[id]/               bills (organizer, or anyone with the invite code)
 prisma/                                  schema, migrations, demo seed (Diwali collection + monthly fund)
-docs/                                    feature guide, PRDs, deployment guide, screenshots, demo video
+docs/                                    proposal, feature guide, PRDs, deployment guide, screenshots, demo + walkthrough videos
+scripts/                                 Playwright scripts that record the screenshots, demo and walkthrough
 eval/                                    evals + synthetic receipt and bill renderers
 tests/                                   unit, e2e, WhatsApp export fixtures
 ```

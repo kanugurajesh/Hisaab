@@ -166,16 +166,20 @@ A society, festival or temple fund that collects every month and spends at festi
 
 - **Each month is a normal collection** ("Sai Nagar Ganesh Fund · Oct 2026") with its own invite link, review queue, reminders, expenses and assistant. Everything above works per month.
 - **Start next month** (on the latest month, or on the fund page) creates the next month in one tap:
-  - copies everyone on the roster, the amount, the UPI ID and the details
+  - copies everyone on the roster, the amount, the UPI ID and the details (time, venue, note)
   - everyone starts unpaid; people marked "not expected to pay" stay excluded
   - the previous month stays open for late payments
+  - pressing it twice opens the same month, not two. The next month can only be started once the current one has begun (December during November, not January), and the button says so
+  - dates follow the fund's first month, so a fund that started on the 31st is back on the 31st after February
 - **The fund page** (opened from the collections list, which shows the fund once with a **Monthly** badge):
   - **Fund collected · Spent · In the fund · Paid this year**
-  - **Missed 2 or more months in a row**, with the months named and a link to send reminders. The current month only counts once it's over.
+  - **Missed 2 or more months in a row**, with the months named and a link to send reminders. The current month only counts once it's over, and a month that hasn't started never counts, even if it was closed by mistake.
   - **Month by month**: each person × each month (✓ paid · ? likely · ✗ not paid · … still collecting · – not expected), with **each person's total this year**. Rows are sorted by who is furthest behind.
-- **"Also missed Aug, Sept"** under unpaid names in a month's *Who hasn't paid* list, to help pick the reminder's tone.
+- **"Also missed Aug, Sept"** under unpaid names in a month's *Who hasn't paid* list, to help pick the reminder's tone. A month still collecting is skipped, not counted as missed.
 - **The group sees the whole fund.** On every month's invite link, and in the money update, it shows all months collected, all spending and **what's in the fund**. Bills from any month open from any month's link.
+- **A month's Overview and the Ask tab** report the fund's balance across all months, not a misleading per-month shortfall.
 - **Closing a month** stops payments for that month only. There's no per-person settlement, because the balance stays in the fund.
+- **Deleting a month** is blocked once it holds payments or bills: that money is part of the fund's shared accounts.
 
 ---
 

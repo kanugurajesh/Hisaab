@@ -38,6 +38,9 @@ Each month is still a normal collection, with its own invite link, review queue,
 |---|---|
 | Linked months, not one never-ending collection | Matching, stats, reminders, review and the assistant all assume one payment per person per collection. Linking months reuses all of it, while one big collection would mean rewriting each. |
 | The current month never counts as "missed" while it's collecting | Not having paid on the 3rd of the month isn't missing it. |
+| A month that hasn't started never counts as "missed", even if closed | Starting December early, or closing it by mistake, shouldn't put anyone behind. |
+| The next month can only be opened once the current one has begun | Repeated taps on "Start next month" mustn't stack up future months nobody can pay yet. |
+| A month with payments or bills can't be deleted | That money belongs to the whole fund's accounts, not to one month. |
 | Missed months are counted **in a row**, back from the last finished month | "Missed March, paid since" is not the same problem as "missed the last three". |
 | Members are copied from the **latest** month | Changes the organizer made last month (people who left, shops excluded) carry forward. |
 | The previous month isn't closed automatically | Late payments for last month are normal, and its link keeps working. |
@@ -52,5 +55,5 @@ Each month is still a normal collection, with its own invite link, review queue,
 ## Not built yet: questions for the next organizer conversation
 1. **Paying several months at once** ("₹1,500 for Aug–Oct"): today that payment counts toward one month.
 2. **Changing the amount mid-year** (₹500 → ₹600 before the festival): the next month copies the latest amount, which can be edited.
-3. **Assistant across months** ("who missed 3 months?"): the assistant answers per month today.
+3. **Assistant across months** ("who missed 3 months?"): the assistant answers per month today, except for money, where it reports the whole fund's balance.
 4. **Year-end:** does the fund reset at Ganesh Chaturthi or in January?
