@@ -10,8 +10,13 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { chromium, devices, type BrowserContext, type FrameLocator, type Locator, type Page } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
 import sharp from "sharp";
 import { renderReceipt } from "../eval/lib/renderReceipt";
+import { paymentCookieName, signContributionId } from "../src/lib/contributionToken";
+
+// Only used to look up seeded contributions for the contributor screenshots.
+const prisma = new PrismaClient();
 
 const BASE = process.env.APP_URL ?? "http://localhost:3000";
 const ROOT = path.resolve(__dirname, "..");
@@ -58,6 +63,14 @@ async function loginAndOpenEvent(page: Page) {
 
 const tab = (page: Page, name: RegExp | string) =>
   page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name, exact: typeof name === "string" });
+
+// Opens a tab by its URL. The tabs switch with a client-side transition, and a
+// click that lands while one is still pending can be lost; a plain load can't.
+async function openTab(page: Page, id: string) {
+  const url = new URL(page.url());
+  url.searchParams.set("tab", id);
+  await page.goto(url.toString());
+}
 
 // First person on the "Not paid yet" list, pinned by name (the button text changes once a draft exists).
 async function reminderRow(page: Page) {
@@ -107,7 +120,7 @@ async function shots() {
   };
   const cardOf = (heading: Locator) => heading.locator("xpath=ancestor::section[1]");
 
-  await tab(page, /hasn't paid/).click();
+  await openTab(page, "roster");
   await page.getByRole("heading", { name: /Not paid yet/ }).waitFor();
   await shotAt("02-who-hasnt-paid", page.getByRole("heading", { name: /Not paid yet/ }), 140);
   await page.waitForLoadState("networkidle");
@@ -120,16 +133,16 @@ async function shots() {
   await person.getByLabel("Reminder message").waitFor();
   await shotAt("04-reminder", page.getByRole("heading", { name: /Not paid yet/ }), 24);
 
-  await tab(page, /Payments/).click();
+  await openTab(page, "review");
   await page.getByRole("heading", { name: /Review queue/ }).waitFor();
   await shotAt("05-review-queue", page.getByRole("heading", { name: /Review queue/ }), 24);
 
-  await tab(page, /Expenses/).click();
+  await openTab(page, "expenses");
   await page.getByRole("heading", { name: "Expenses", exact: true }).waitFor();
   await shot("06-expenses");
   await shotAt("07-bill-flagged", page.getByRole("heading", { name: /Worth a look/ }), 24);
 
-  await tab(page, "Close").click();
+  await openTab(page, "close");
   await page.getByRole("heading", { name: "Balance per person" }).waitFor();
   await shot("08-close-and-settle");
 
@@ -149,7 +162,79 @@ async function shots() {
   await mobile.locator("#ledger").evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 12));
   await mshot("10-contributor-ledger");
 
+  // The invite link once a payment is registered: the page reads a signed cookie,
+  // so set the one a seeded contributor would have.
+  const seeded = async (name: string) => {
+    const c = await prisma.contribution.findFirstOrThrow({ where: { name, event: { inviteCode: "diwali26" } } });
+    return signContributionId(c.id);
+  };
+  // A fresh phone per contributor, so one person's cookie never leaks into the next shot.
+  const asContributor = async (name: string) => {
+    const ctx = await browser.newContext({ ...devices["iPhone 13"], deviceScaleFactor: 2 });
+    await ctx.addInitScript(HIDE_DEV_BADGE);
+    await ctx.addCookies([{ name: paymentCookieName("diwali26"), value: await seeded(name), url: BASE }]);
+    const p = await ctx.newPage();
+    await p.goto(INVITE);
+    return p;
+  };
+  const pshot = async (p: Page, name: string, fullPage = false) => {
+    await p.waitForLoadState("networkidle");
+    await imagesLoaded(p);
+    await sleep(400);
+    await p.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
+    console.log(`  ${name}.png`);
+  };
+  const rahul = await asContributor("Rahul Verma");
+  await rahul.getByText(/organizer will confirm/).waitFor();
+  await pshot(rahul, "11-contributor-waiting");
+  const sita = await asContributor("Sita Reddy");
+  const verified = sita.getByText("Payment verified. Thank you!");
+  await verified.waitFor();
+  await verified.evaluate((el) => window.scrollTo(0, (el.closest("section") ?? el).getBoundingClientRect().top + window.scrollY - 12));
+  await pshot(sita, "12-contributor-confirmed");
+  await sita.goto(`${BASE}/r/${await seeded("Sita Reddy")}`);
+  await pshot(sita, "14-receipt", true);
+
+  // Back to the organizer: event details on the Overview, then the assistant.
+  await openTab(page, "overview");
+  const details = page.getByRole("heading", { name: "Event details" });
+  await details.waitFor();
+  await page.waitForLoadState("networkidle");
+  await cardOf(details).screenshot({ path: path.join(SHOTS, "13-event-details.png") });
+  console.log("  13-event-details.png");
+
+  await openTab(page, "ask");
+  const ask = page.getByLabel("Ask a question");
+  for (const [q, answer] of [
+    ["Which payments need my review?", /waiting for review/],
+    ["why was Esha flagged?", /failed \d+ check/],
+    ["how much did we spend on food?", /spent on Food/],
+  ] as const) {
+    await ask.fill(q);
+    await page.getByRole("button", { name: "Ask", exact: true }).click();
+    await page.getByText(answer).waitFor({ timeout: 30_000 });
+  }
+  await sleep(800);
+  // The conversation scrolls inside the card; let it grow so all three answers show.
+  await page.locator('[aria-live="polite"]').evaluate((el) => {
+    el.style.maxHeight = "none";
+    el.style.overflow = "visible";
+  });
+  // The card is now taller than the window; unstick the header so it doesn't cover the top.
+  await page.locator("header").first().evaluate((el) => (el.style.position = "static"));
+  await cardOf(page.getByRole("heading", { name: "Ask about this collection" })).screenshot({ path: path.join(SHOTS, "15-assistant.png") });
+  console.log("  15-assistant.png");
+
+  // The monthly fund page.
+  await page.setViewportSize({ width: 1024, height: H });
+  await page.goto(`${BASE}/events`);
+  await page.getByRole("link", { name: /Sai Nagar Ganesh Fund/ }).first().click();
+  await page.waitForURL("**/funds/**");
+  await page.getByRole("heading", { name: "Month by month" }).waitFor();
+  await shot("16-fund", true);
+
   await browser.close();
+  await prisma.$disconnect();
 }
 
 // ---------------------------------------------------------------- video
