@@ -65,7 +65,10 @@ export async function addExpense(eventId: string, raw: Record<string, string | u
   }
 
   const amount = input.amount ?? (x?.isBill && x.total !== null ? Math.round(x.total) : undefined);
-  const title = input.title ?? (x?.isBill ? (x.summary.trim() || x.vendor?.trim()) : undefined);
+  // The model is asked for a summary of at most 6 words. A long one means it copied the bill's text, so use the shop name instead.
+  const summary = x?.summary.trim() ?? "";
+  const shortSummary = summary.split(/\s+/).length <= 8 && summary.length <= 60 ? summary : "";
+  const title = input.title ?? (x?.isBill ? (shortSummary || x.vendor?.trim()) : undefined);
   if (!amount || amount <= 0) return { error: "Couldn't read a total on this bill. Enter the amount yourself." };
   if (!title || title.length < 2) return { error: "Couldn't tell what this bill was for. Add a short description." };
   const vendor = x?.vendor?.trim().slice(0, 80) || null;

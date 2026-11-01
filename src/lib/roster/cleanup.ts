@@ -97,9 +97,10 @@ export async function cleanRoster(members: ParsedMember[], organizerName: string
       out.push({ displayName: original, phone: m.phone, excludeReason: null });
       continue;
     }
-    const renameOk = !m.name || nameSimilarity(r.displayName, m.name) >= 0.6;
+    // A member with no name is just a number. The model only saw its last digits, so keep the number.
+    const renameOk = !!m.name && nameSimilarity(r.displayName, m.name) >= 0.6;
     out.push({
-      displayName: (renameOk ? r.displayName : stripDecorations(m.name!)) || original,
+      displayName: (renameOk ? r.displayName : m.name ? stripDecorations(m.name) : "") || original,
       phone: m.phone,
       excludeReason: r.isOrganizer ? "Organizer" : !r.isPerson ? "Not a person (business/bot)" : null,
     });

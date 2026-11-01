@@ -34,9 +34,14 @@ export function checkReminder(message: string, input: Pick<ReminderInput, "amoun
   return problems;
 }
 
+// The due date written out in the reminder's language, in IST.
+function localDate(due: Date, language: Language, month: "short" | "long"): string {
+  return due.toLocaleDateString(language === "en" ? "en-IN" : `${language}-IN`, { day: "numeric", month, timeZone: "Asia/Kolkata" });
+}
+
 function dueText(due: Date | null, language: Language): string {
   if (!due) return "";
-  const d = due.toLocaleDateString(language === "en" ? "en-IN" : `${language}-IN`, { day: "numeric", month: "short" });
+  const d = localDate(due, language, "short");
   return { en: ` by ${d}`, hi: ` ${d} तक`, te: ` ${d} లోపు` }[language];
 }
 
@@ -59,7 +64,7 @@ const PROMPT = `You write short WhatsApp reminder messages for Indian group even
 Write like a polite neighbour, not a bank. 2-4 short sentences, at most one emoji. Never shame the person.
 Tone "friendly": warm nudge. "firm": clear that collection is closing. "final": last reminder, still respectful.
 You MUST include the exact amount and the exact link given, and no other links. Write only in the requested language
-(Hindi in Devanagari, Telugu in Telugu script); keep the link, amount and names as given.`;
+(Hindi in Devanagari, Telugu in Telugu script); keep the link, amount, names and due date exactly as given.`;
 
 export async function generateReminder(input: ReminderInput, eventId: string): Promise<{ message: string; usedFallback: boolean }> {
   const facts = {
@@ -68,7 +73,8 @@ export async function generateReminder(input: ReminderInput, eventId: string): P
     name: input.name,
     event: input.eventName,
     amount: `₹${input.amount.toLocaleString("en-IN")}`,
-    dueDate: input.dueDate?.toDateString() ?? null,
+    // Already in the target language, so the model copies the date instead of translating it ("Nov" once came out as Telugu for "May").
+    dueDate: input.dueDate ? localDate(input.dueDate, input.language, "long") : null,
     link: input.link,
     organizer: input.organizerName,
   };
