@@ -22,7 +22,11 @@ export function modelFor(kind: ModelKind): string {
 
 let client: Groq | null = null;
 function groq(): Groq {
-  client ??= new Groq({ apiKey: process.env.GROQ_API_KEY, maxRetries: 2, timeout: 30_000 });
+  // Rate-limit (429) and network retries, honouring Groq's retry-after. The app keeps this low so a
+  // contributor isn't left waiting (a failed read goes to review); the eval raises it to ride out
+  // per-minute token limits instead of scoring them as model mistakes.
+  const maxRetries = Number(process.env.GROQ_MAX_RETRIES) || 2;
+  client ??= new Groq({ apiKey: process.env.GROQ_API_KEY, maxRetries, timeout: 30_000 });
   return client;
 }
 

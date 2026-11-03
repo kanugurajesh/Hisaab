@@ -22,12 +22,39 @@ import { NAME_PAIRS } from "./data/names";
 import { billTotal, renderBill, type BillSpec } from "./lib/renderBill";
 import { renderReceipt, type ReceiptSpec } from "./lib/renderReceipt";
 
+// Free-tier vision limits are a few images a minute: wait out 429s rather than scoring them.
+process.env.GROQ_MAX_RETRIES ??= "8";
+
 const EVAL_EVENT_ID = undefined as unknown as string; // not persisted
 const lines: string[] = [];
 const out = (s = "") => {
   console.log(s);
   lines.push(s);
 };
+/** First line of an API error, without the JSON body: "429 Rate limit reached…". */
+const shortError = (e: unknown) =>
+  ((e as Error).message.match(/"message":"([^"]{0,70})/)?.[1] ?? (e as Error).message.slice(0, 70)).replace(/\|/g, "/");
+/**
+ * Free-tier vision models also have a daily token cap. When it's hit, Groq says when to
+ * "try again", so wait that long instead of scoring the rest of the run as model errors.
+ */
+let dailyLimitWaitMs = 0; // time the last call spent waiting, kept out of latency
+async function waitOutDailyLimit<T>(fn: () => Promise<T>): Promise<T> {
+  dailyLimitWaitMs = 0;
+  for (let waited = 0; ; ) {
+    try {
+      dailyLimitWaitMs = waited;
+      return await fn();
+    } catch (e) {
+      const m = (e as Error).message.match(/per day.*?try again in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s/);
+      if (!m || waited > 6 * 3600_000) throw e;
+      const ms = (Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3])) * 1000 + 5_000;
+      console.error(`  daily token limit reached; waiting ${Math.round(ms / 1000)}s`);
+      await new Promise((r) => setTimeout(r, ms));
+      waited += ms;
+    }
+  }
+}
 const pct = (n: number, d: number) => (d ? `${((n / d) * 100).toFixed(1)}%` : "n/a");
 
 // ---------------------------------------------------------------- names
@@ -172,7 +199,7 @@ async function proofSuite() {
   out();
   const event = { ...ORG, createdAt: new Date(Date.now() - 10 * 86_400_000) };
   const fieldTotals: Record<string, [number, number]> = {};
-  let verdictOk = 0, falseVerified = 0, falseReview = 0;
+  let verdictOk = 0, falseVerified = 0, falseReview = 0, modelErrors = 0;
   const rows: string[] = [];
   const latencies: number[] = [];
 
@@ -182,12 +209,16 @@ async function proofSuite() {
     const t = Date.now();
     let x: ProofExtraction;
     try {
-      x = await extractProof({ jpeg: img.jpeg, eventId: EVAL_EVENT_ID, mock: () => { throw new Error("eval needs the real model"); } });
+      x = await waitOutDailyLimit(() => extractProof({ jpeg: img.jpeg, eventId: EVAL_EVENT_ID, mock: () => { throw new Error("eval needs the real model"); } }));
     } catch (e) {
-      rows.push(`| ${c.name} | error: ${(e as Error).message.slice(0, 60)} | | |`);
+      // The app sends a payment it couldn't read to review, so score exactly that.
+      modelErrors++;
+      if (c.expectVerified) falseReview++;
+      else verdictOk++;
+      rows.push(`| ${c.name} | ${c.expectVerified ? "verify" : "review"} | review ${c.expectVerified ? "❌" : "✅"} | model error: ${shortError(e)} |`);
       continue;
     }
-    latencies.push(Date.now() - t);
+    latencies.push(Date.now() - t - dailyLimitWaitMs);
     const declared = c.declared ?? c.spec?.amount ?? 500;
     const { verified, checks } = evaluateProof({ extracted: x, declared: { amount: declared, utr: null }, event, duplicates: { utrUsedBy: null, imageUsedBy: null } });
     if (verified === c.expectVerified) verdictOk++;
@@ -211,6 +242,7 @@ async function proofSuite() {
   out(`| Verdict accuracy | ${pct(verdictOk, CASES.length)} |`);
   out(`| **Bad payments auto-verified** (must be 0) | ${falseVerified} |`);
   out(`| Good payments sent to review | ${falseReview} |`);
+  out(`| Model errors (the app sends these to review) | ${modelErrors} of ${CASES.length} |`);
   for (const [k, [ok, n]] of Object.entries(fieldTotals)) out(`| Field accuracy: ${k} | ${pct(ok, n)} |`);
   if (latencies.length) out(`| Median latency | ${latencies.sort((a, b) => a - b)[Math.floor(latencies.length / 2)]} ms |`);
   out();
@@ -283,7 +315,7 @@ async function billSuite() {
   out(`${BILL_CASES.length} synthetic bills (thermal slip, GST invoice, handwritten memo; inflated, edited, injected, stale, non-bill).`);
   out();
   const event = { createdAt: new Date(Date.now() - 10 * 86_400_000) };
-  let badUnflagged = 0, goodFlagged = 0, totalRead = 0, totalN = 0, dateRead = 0, vendorRead = 0;
+  let badUnflagged = 0, goodFlagged = 0, totalRead = 0, totalN = 0, dateRead = 0, vendorRead = 0, modelErrors = 0;
   const rows: string[] = [];
   const latencies: number[] = [];
   for (const c of BILL_CASES) {
@@ -291,12 +323,16 @@ async function billSuite() {
     const t = Date.now();
     let x: BillExtraction;
     try {
-      x = await extractBill({ jpeg: img.jpeg, eventId: EVAL_EVENT_ID, mock: () => { throw new Error("eval needs the real model"); } });
+      x = await waitOutDailyLimit(() => extractBill({ jpeg: img.jpeg, eventId: EVAL_EVENT_ID, mock: () => { throw new Error("eval needs the real model"); } }));
     } catch (e) {
-      rows.push(`| ${c.name} | error: ${(e as Error).message.slice(0, 60)} | | |`);
+      // The app keeps a bill it couldn't read but flags it as unchecked, so score exactly that.
+      modelErrors++;
+      if (!c.bad) goodFlagged++;
+      if (c.spec && !c.spec.total && !c.spec.injection) totalN++;
+      rows.push(`| ${c.name} | ${c.bad ? "flag" : "pass"} | flag ${c.bad ? "✅" : "❌"} | — | model error: ${shortError(e)} |`);
       continue;
     }
-    latencies.push(Date.now() - t);
+    latencies.push(Date.now() - t - dailyLimitWaitMs);
     const { flagged, checks } = evaluateBill({ extracted: x, typedAmount: c.typed, event, duplicates: { sameReceipt: null, similarEntry: null } });
     if (c.bad && !flagged) badUnflagged++;
     if (!c.bad && flagged) goodFlagged++;
@@ -316,6 +352,7 @@ async function billSuite() {
   out(`|---|---|`);
   out(`| **Unsupported amounts not flagged** (must be 0) | ${badUnflagged} of ${bad} |`);
   out(`| Genuine bills flagged anyway | ${goodFlagged} of ${BILL_CASES.length - bad} |`);
+  out(`| Model errors (the app flags these as unchecked) | ${modelErrors} of ${BILL_CASES.length} |`);
   out(`| Total read exactly (auto-fill works) | ${pct(totalRead, totalN)} |`);
   out(`| Date read exactly | ${pct(dateRead, totalN)} |`);
   out(`| Shop name read | ${pct(vendorRead, totalN)} |`);
