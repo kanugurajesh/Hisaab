@@ -25,6 +25,14 @@ export function flatNumbers(name: string): Set<string> {
   return new Set(found.map((f) => f.replace(/\D/g, "")));
 }
 
+const BUSINESS_WORDS =
+  /\b(shop|store|stores|office|enterprises?|traders|bot|services|sweets|mart|bakery|caterers?|tent house|medicals?|agencies|textiles|electricals)\b/i;
+
+/** "Ganesh Sweets", "Balaji Stores": a business, not a member who pays. */
+export function looksLikeBusiness(name: string): boolean {
+  return BUSINESS_WORDS.test(name);
+}
+
 /** Both names carry a flat number and none of them agree: different households, whatever the names say. */
 export function flatsConflict(a: string, b: string): boolean {
   const fa = flatNumbers(a);

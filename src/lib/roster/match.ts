@@ -1,7 +1,7 @@
 import { callStructured } from "@/lib/ai/groq";
 import { s } from "@/lib/ai/schema";
 import { lastDigits } from "@/lib/phone";
-import { flatsConflict, nameSimilarity, normalizeName } from "@/lib/similarity";
+import { flatsConflict, looksLikeBusiness, nameSimilarity, normalizeName } from "@/lib/similarity";
 
 // Three-stage matcher between the expected roster and people who registered:
 //   1. deterministic (phone, exact normalised name)  -> auto match
@@ -113,7 +113,8 @@ export function generateCandidates(roster: RosterEntry[], contributions: Contrib
 /**
  * Turn model proposals into safe decisions: drop ids the model invented, enforce
  * one contribution per roster member (highest confidence wins), apply thresholds.
- * Different phone numbers on both sides cap the pair at a suggestion.
+ * Different phone numbers on both sides, or a business on one side only ("Ganesh Sweets" vs.
+ * "Ganesh Iyer"), cap the pair at a suggestion.
  */
 export function resolveProposals(proposals: Proposal[], candidates: Candidates[]): MatchDecision[] {
   const allowed = new Map(candidates.map((c) => [c.roster.id, new Map(c.candidates.map((x) => [x.contribution.id, x.contribution]))]));
@@ -125,7 +126,9 @@ export function resolveProposals(proposals: Proposal[], candidates: Candidates[]
     if (!p.contributionId || !allowed.get(p.rosterId)?.has(p.contributionId)) continue;
     if (usedR.has(p.rosterId) || usedC.has(p.contributionId)) continue;
     let confidence = Math.max(0, Math.min(1, p.confidence));
-    if (phonesDiffer(rosterById.get(p.rosterId)!, allowed.get(p.rosterId)!.get(p.contributionId)!)) {
+    const roster = rosterById.get(p.rosterId)!;
+    const contribution = allowed.get(p.rosterId)!.get(p.contributionId)!;
+    if (phonesDiffer(roster, contribution) || looksLikeBusiness(roster.displayName) !== looksLikeBusiness(contribution.name)) {
       confidence = Math.min(confidence, AUTO_ACCEPT - 0.01);
     }
     if (confidence < SUGGEST_MIN) continue;

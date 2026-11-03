@@ -35,6 +35,12 @@ describe("matching", () => {
     expect(d.status).toBe("SUGGESTED");
   });
 
+  it("caps a business matched to a person at a suggestion", () => {
+    const cands = generateCandidates([r("r1", "Ganesh Sweets")], [c("c1", "Ganesh Iyer")]);
+    const [d] = resolveProposals([{ rosterId: "r1", contributionId: "c1", confidence: 0.95, reason: "" }], cands);
+    expect(d.status).toBe("SUGGESTED");
+  });
+
   it("uses the UPI payer name as a signal", () => {
     const cands = generateCandidates([r("r1", "Anil Varma")], [c("c1", "AV", null, "ANIL VARMA")]);
     expect(cands[0].candidates[0].contribution.id).toBe("c1");

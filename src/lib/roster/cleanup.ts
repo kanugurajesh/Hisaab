@@ -1,7 +1,7 @@
 import { callStructured } from "@/lib/ai/groq";
 import { s } from "@/lib/ai/schema";
 import { lastDigits } from "@/lib/phone";
-import { nameSimilarity } from "@/lib/similarity";
+import { looksLikeBusiness, nameSimilarity } from "@/lib/similarity";
 import type { ParsedMember } from "./parseWhatsApp";
 
 export interface CleanMember {
@@ -65,7 +65,7 @@ export async function cleanRoster(members: ParsedMember[], organizerName: string
         members: [...byId].map(([id, m]) => ({
           id,
           displayName: m.name ? stripDecorations(m.name) : m.phone!,
-          isPerson: !/\b(shop|store|office|enterprises|traders|bot|services)\b/i.test(m.name ?? ""),
+          isPerson: !looksLikeBusiness(m.name ?? ""),
           isOrganizer: !!m.name && nameSimilarity(m.name, organizerName) >= 0.95,
           duplicateOf: null,
         })),
