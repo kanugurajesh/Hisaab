@@ -1,0 +1,25 @@
+# Public demo on Render's free tier. Postgres comes from Neon (free); see docs/DEPLOY.md.
+# Render → New → Blueprint → pick this repo, then fill in the two secrets it asks for.
+services:
+  - type: web
+    name: hisaab
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    healthCheckPath: /login
+    envVars:
+      - key: DATABASE_URL # Neon *direct* (non-pooled) connection string, with sslmode=require
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: AI_MOCK
+        value: "false"
+      - key: GROQ_TEXT_MODEL
+        value: openai/gpt-oss-120b
+      - key: GROQ_VISION_MODEL
+        value: qwen/qwen3.8-27b

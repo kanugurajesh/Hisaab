@@ -1,8 +1,35 @@
-# Deploying to Google Cloud
+# Deploying
 
-The app runs on **Cloud Run** (Mumbai, `asia-south1`), with **Cloud SQL for Postgres**, a private **GCS bucket** for payment screenshots, and **Secret Manager** for keys. GitHub Actions deploys via Workload Identity Federation, so no JSON keys are stored in GitHub.
+There are two ways to run Hisaab in the cloud:
 
-## One-time setup
+- **Public demo (free): Render + Neon.** One container that resets the demo account on every start. Below.
+- **Production: Google Cloud.** Cloud Run, Cloud SQL, a private GCS bucket and Secret Manager, deployed from GitHub Actions. [Further down](#production-google-cloud).
+
+## Public demo: Render + Neon
+
+The `demo` stage of the `Dockerfile` (the last stage, which Render builds) does this on every start:
+
+1. applies the migrations
+2. re-seeds the demo account (on mock AI, so starting never spends model calls)
+3. serves the app with the passwordless demo login on
+
+Everything visitors do runs on the real models. Uploads are kept on the container's disk, so they disappear when Render restarts or sleeps the free instance. The demo account's own data comes back from the seed each time.
+
+1. **Database.** Create a free project at [neon.tech](https://neon.tech) and copy the **direct** connection string, not the pooled one (Prisma migrations need a direct connection). It looks like `postgresql://user:pw@ep-xxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require`.
+2. **App.** On [render.com](https://render.com), choose **New → Blueprint**, pick this repository, and Render reads `render.yaml`. It asks for two values:
+   - `DATABASE_URL`: the Neon string from step 1
+   - `GROQ_API_KEY`: your Groq key
+
+   `NEXTAUTH_SECRET` is generated for you. The public URL (`https://hisaab-xxxx.onrender.com`) is picked up from Render's `RENDER_EXTERNAL_URL` for links and sign-in.
+3. **Check it.** Open the URL and choose **Try the demo organizer account**. The free instance sleeps after 15 minutes idle, so the first visit after that takes about a minute to wake up.
+
+Every push to `main` redeploys it.
+
+## Production: Google Cloud
+
+The app runs on **Cloud Run** (Mumbai, `asia-south1`), with **Cloud SQL for Postgres**, a private **GCS bucket** for payment screenshots, and **Secret Manager** for keys. GitHub Actions deploys via Workload Identity Federation, so no JSON keys are stored in GitHub. The deploy workflow is skipped until `GCP_PROJECT_ID` is set.
+
+### One-time setup
 
 ```bash
 PROJECT=your-project-id
@@ -34,7 +61,7 @@ Grant the Cloud Run runtime service account `roles/cloudsql.client`, `roles/secr
 
 Create a Workload Identity pool and provider for GitHub, plus a deploy service account with `roles/run.admin`, `roles/artifactregistry.writer` and `roles/iam.serviceAccountUser`. Then follow [google-github-actions/auth](https://github.com/google-github-actions/auth#workload-identity-federation-through-a-service-account).
 
-## GitHub configuration
+### GitHub configuration
 
 | Kind | Name | Example |
 |---|---|---|

@@ -373,13 +373,15 @@ npx tsx --env-file=.env scripts/walkthrough.ts                                  
 
 ## Deployment
 
-The app deploys to **Google Cloud Run + Cloud SQL (Postgres) + a private GCS bucket**. After CI passes on `main`, the deploy workflow:
+**Public demo: Render + Neon (free).** [`render.yaml`](render.yaml) deploys the `demo` stage of the `Dockerfile`. On every start it applies migrations, re-seeds the demo account and turns on the demo login, and it uses the real models. It redeploys on every push to `main`.
+
+**Production: Google Cloud Run + Cloud SQL (Postgres) + a private GCS bucket.** After CI passes on `main`, the deploy workflow:
 
 1. builds the app and migration images from a multi-stage `Dockerfile` and pushes them to Artifact Registry
 2. runs Prisma migrations as a Cloud Run job
 3. deploys the service with secrets from Secret Manager, authenticating with **Workload Identity Federation** (no long-lived keys)
 
-One-time setup: [docs/DEPLOY.md](docs/DEPLOY.md).
+The workflow is skipped until the Google Cloud project is configured. Setup for both: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ---
 

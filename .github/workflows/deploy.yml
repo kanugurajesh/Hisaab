@@ -14,7 +14,9 @@ env:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Skipped (not failed) until the one-time GCP setup in docs/DEPLOY.md sets GCP_PROJECT_ID.
+    # The public demo runs on Render instead (render.yaml).
+    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.GCP_PROJECT_ID != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
